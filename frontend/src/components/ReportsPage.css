@@ -1,0 +1,41 @@
+/* Reports Page Styling */
+.reports-page-container {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+/* Tab Panel Styling */
+div[role="tabpanel"] {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Coming Soon Placeholders */
+.coming-soon-placeholder {
+  padding: 60px 20px;
+  text-align: center;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.coming-soon-placeholder h3 {
+  color: #495057;
+  font-size: 24px;
+  margin-bottom: 12px;
+}
+
+.coming-soon-placeholder p {
+  color: #6c757d;
+  font-size: 16px;
+}

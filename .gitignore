@@ -1,0 +1,133 @@
+# ========================================
+# Environment & Secrets (NEVER COMMIT)
+# ========================================
+.env
+.env.local
+.env.production
+.env.*.local
+*.env
+
+# ========================================
+# Dependencies
+# ========================================
+node_modules/
+frontend/node_modules/
+__pycache__/
+backend/__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ========================================
+# Build outputs
+# ========================================
+frontend/build/
+frontend/dist/
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# ========================================
+# IDE & Editor
+# ========================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# ========================================
+# OS Files
+# ========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ========================================
+# Logs
+# ========================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ========================================
+# Testing
+# ========================================
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+
+# ========================================
+# Database (local)
+# ========================================
+*.sqlite3
+*.db
+pgdata/
+postgres_data/
+postgres-data/
+
+# ========================================
+# Uploads & Media (local dev only)
+# ========================================
+uploads/
+backend/uploads/
+media/
+
+# ========================================
+# SSL Certificates (local)
+# ========================================
+nginx/ssl/
+*.pem
+*.key
+*.crt
+*.csr
+
+# ========================================
+# Docker (local volumes)
+# ========================================
+docker-volumes/
+
+# ========================================
+# Temporary files
+# ========================================
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# ========================================
+# Backups (keep local, don't push)
+# ========================================
+backups/
+
+# ========================================
+# Keep these template files (tracked)
+# ========================================
+!.env.example
+!.env.production.template
+!backend/.env.example
+!ops/droplet/.env.droplet.template

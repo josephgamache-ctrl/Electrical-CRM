@@ -1,0 +1,30 @@
+# Secrets / env
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Certificates / keys
+nginx/certs/
+nginx/ssl/
+
+# Backups / dumps
+backups/
+backup_*
+*.sql
+*.sql.gz
+*.tar.gz
+
+# Dependencies / builds
+**/node_modules/
+frontend/build/
+frontend/dist/
+
+# Python caches
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+
+# Logs
+*.log

@@ -1,0 +1,15 @@
+# Secrets / env
+.env
+.env.*
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local artifacts
+uploads/
+backups/
+*.log
+

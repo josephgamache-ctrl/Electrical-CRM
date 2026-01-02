@@ -1,0 +1,179 @@
+/* Period Selector - Mobile-First Design */
+.period-selector {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 16px;
+}
+
+.period-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.period-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  background: #f8f9fa;
+  color: #495057;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 90px;
+  justify-content: center;
+}
+
+.period-pill:hover {
+  background: #e9ecef;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.period-pill.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: #667eea;
+  font-weight: 600;
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.period-icon {
+  font-size: 16px;
+}
+
+.period-label {
+  font-size: 13px;
+}
+
+/* Custom Date Picker */
+.custom-date-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #e9ecef;
+  margin-top: 12px;
+}
+
+.date-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.date-input-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.date-input-group input[type="date"] {
+  padding: 10px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #495057;
+  background: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.date-input-group input[type="date"]:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.apply-dates-btn {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 8px;
+}
+
+.apply-dates-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.apply-dates-btn:disabled {
+  background: #ced4da;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Date Range Display */
+.date-range-display {
+  padding: 10px 14px;
+  background: #f8f9fa;
+  border-left: 3px solid #667eea;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #495057;
+  font-weight: 500;
+  margin-top: 12px;
+}
+
+/* Tablet & Desktop */
+@media (min-width: 768px) {
+  .period-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .period-pill {
+    flex: 0 0 auto;
+    min-width: 100px;
+  }
+
+  .custom-date-picker {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+
+  .date-input-group {
+    flex: 1;
+  }
+
+  .apply-dates-btn {
+    flex: 0 0 auto;
+    margin-top: 0;
+    padding: 10px 24px;
+  }
+}
+
+/* Desktop Large */
+@media (min-width: 1024px) {
+  .period-selector {
+    padding: 20px;
+  }
+
+  .period-pill {
+    padding: 12px 20px;
+    font-size: 15px;
+  }
+
+  .period-icon {
+    font-size: 18px;
+  }
+}

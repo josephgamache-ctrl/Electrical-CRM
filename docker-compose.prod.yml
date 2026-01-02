@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  ma_electrical-db:
+    image: postgres:13
+    container_name: ma_electrical-db
+    environment:
+      POSTGRES_DB: ma_electrical_inventory
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD environment variable is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./database/seed_data.sql:/docker-entrypoint-initdb.d/02_seed_data.sql
+      - ./database/test_work_orders.sql:/docker-entrypoint-initdb.d/03_test_work_orders.sql
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - ma_electrical_network
+
+  ma_electrical-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ma_electrical-backend
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:?DB_PASSWORD required}@ma_electrical-db:5432/ma_electrical_inventory
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY environment variable is required}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+    depends_on:
+      - ma_electrical-db
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - ma_electrical_network
+
+  ma_electrical-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: ${API_URL:-http://localhost:8001}
+    container_name: ma_electrical-frontend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - ma_electrical-backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - ma_electrical_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: ma_electrical-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - ma_electrical-frontend
+      - ma_electrical-backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - ma_electrical_network
+
+volumes:
+  postgres_data:
+
+networks:
+  ma_electrical_network:
+    driver: bridge

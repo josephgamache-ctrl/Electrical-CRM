@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MA Electrical Inventory API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+        .section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; margin: 5px; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        pre { background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto; max-height: 400px; overflow-y: auto; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🔌 MA Electrical Inventory - API Test Page</h1>
+
+    <!-- Login Section -->
+    <div class="section">
+        <h2>1. Login</h2>
+        <input type="text" id="username" placeholder="Username" value="joseph">
+        <input type="password" id="password" placeholder="Password" value="">
+        <button onclick="login()">Login</button>
+        <div id="login-result"></div>
+    </div>
+
+    <!-- Get Inventory Section -->
+    <div class="section">
+        <h2>2. Get All Inventory</h2>
+        <button onclick="getInventory()" id="getInventoryBtn" disabled>Get Inventory</button>
+        <div id="inventory-result"></div>
+    </div>
+
+    <!-- Get Low Stock Section -->
+    <div class="section">
+        <h2>3. Get Low Stock Items</h2>
+        <button onclick="getLowStock()" id="getLowStockBtn" disabled>Get Low Stock</button>
+        <div id="lowstock-result"></div>
+    </div>
+
+    <!-- Get Categories Section -->
+    <div class="section">
+        <h2>4. Get Categories</h2>
+        <button onclick="getCategories()" id="getCategoriesBtn" disabled>Get Categories</button>
+        <div id="categories-result"></div>
+    </div>
+
+    <!-- Search Section -->
+    <div class="section">
+        <h2>5. Search Inventory</h2>
+        <input type="text" id="searchQuery" placeholder="Search term" value="breaker">
+        <button onclick="searchInventory()" id="searchBtn" disabled>Search</button>
+        <div id="search-result"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8001';
+        let token = null;
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('login-result');
+
+            try {
+                const formData = new URLSearchParams();
+                formData.append('username', username);
+                formData.append('password', password);
+
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    token = data.access_token;
+                    resultDiv.innerHTML = `<p class="success">✅ Login successful!</p>
+                        <p>Username: ${data.username}</p>
+                        <p>Token: ${token.substring(0, 30)}...</p>`;
+
+                    // Enable other buttons
+                    document.getElementById('getInventoryBtn').disabled = false;
+                    document.getElementById('getLowStockBtn').disabled = false;
+                    document.getElementById('getCategoriesBtn').disabled = false;
+                    document.getElementById('searchBtn').disabled = false;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Login failed: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function getInventory() {
+            const resultDiv = document.getElementById('inventory-result');
+            resultDiv.innerHTML = '<p>Loading...</p>';
+
+            try {
+                const response = await fetch(`${API_URL}/inventory`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const count = data.inventory.length;
+                    resultDiv.innerHTML = `<p class="success">✅ Found ${count} items</p>
+                        <pre>${JSON.stringify(data.inventory.slice(0, 5), null, 2)}</pre>
+                        <p><em>Showing first 5 items. Total: ${count}</em></p>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function getLowStock() {
+            const resultDiv = document.getElementById('lowstock-result');
+            resultDiv.innerHTML = '<p>Loading...</p>';
+
+            try {
+                const response = await fetch(`${API_URL}/inventory/low-stock`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const count = data.inventory.length;
+                    resultDiv.innerHTML = `<p class="success">✅ Found ${count} low-stock items</p>
+                        <pre>${JSON.stringify(data.inventory, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function getCategories() {
+            const resultDiv = document.getElementById('categories-result');
+            resultDiv.innerHTML = '<p>Loading...</p>';
+
+            try {
+                const response = await fetch(`${API_URL}/categories`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `<p class="success">✅ Found ${data.categories.length} categories</p>
+                        <pre>${JSON.stringify(data.categories, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function searchInventory() {
+            const query = document.getElementById('searchQuery').value;
+            const resultDiv = document.getElementById('search-result');
+            resultDiv.innerHTML = '<p>Loading...</p>';
+
+            try {
+                const response = await fetch(`${API_URL}/inventory/search?query=${encodeURIComponent(query)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const count = data.inventory.length;
+                    resultDiv.innerHTML = `<p class="success">✅ Found ${count} items matching "${query}"</p>
+                        <pre>${JSON.stringify(data.inventory, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

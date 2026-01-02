@@ -1,0 +1,153 @@
+.schedule-container {
+  background-color: #f5f5f5;
+  min-height: 100vh;
+}
+
+.job-card {
+  background: white;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+  transition: all 0.2s;
+}
+
+.job-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.job-card-border {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 8px 0 0 8px;
+}
+
+.job-card-border.status-completed {
+  background-color: #4caf50;
+}
+
+.job-card-border.status-in_progress {
+  background-color: #2196f3;
+}
+
+.job-card-border.status-on_the_way {
+  background-color: #ff9800;
+}
+
+.job-card-border.status-scheduled {
+  background-color: #9c27b0;
+}
+
+.job-card-border.status-pending {
+  background-color: #ffc107;
+}
+
+.job-status-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.job-status-badge.invoiced {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #1976d2;
+}
+
+.job-status-badge.paid {
+  background-color: #e8f5e9;
+  color: #388e3c;
+  border: 1px solid #388e3c;
+}
+
+.job-status-badge.completed {
+  background-color: #f1f8e9;
+  color: #689f38;
+}
+
+.job-status-badge.on_the_way {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.job-status-badge.pending {
+  background-color: #fff9c4;
+  color: #f9a825;
+}
+
+.day-selector {
+  display: flex;
+  justify-content: space-around;
+  padding: 16px 8px;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.day-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.day-item:hover {
+  background-color: #f5f5f5;
+}
+
+.day-item.selected {
+  background-color: #2c3e8f;
+  color: white;
+}
+
+.day-item .day-label {
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.day-item .day-number {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.day-item.today .day-number {
+  color: #2c3e8f;
+}
+
+.day-item.selected.today .day-number {
+  color: white;
+}
+
+/* Map custom marker styles */
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.technician-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Leaflet popup customization */
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+}
+
+.leaflet-popup-content {
+  margin: 12px;
+}

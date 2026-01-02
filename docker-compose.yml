@@ -1,0 +1,69 @@
+services:
+  ma_electrical-db:
+    image: postgres:13
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD environment variable is required}
+      POSTGRES_DB: ma_electrical
+      TZ: America/New_York
+    volumes:
+      - pgdata_electrical:/var/lib/postgresql/data
+    container_name: ma_electrical-db
+    networks:
+      - electrical-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ma_electrical-backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DB_NAME: ma_electrical
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD environment variable is required}
+      DB_HOST: ma_electrical-db
+      DB_PORT: 5432
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY environment variable is required}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001,https://localhost:3443}
+      TZ: America/New_York
+    ports:
+      - "8001:8000"
+    volumes:
+      - uploads_electrical:/app/uploads
+    depends_on:
+      ma_electrical-db:
+        condition: service_healthy
+    container_name: ma_electrical-backend
+    networks:
+      - electrical-network
+
+  ma_electrical-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      TZ: America/New_York
+    ports:
+      - "3001:80"
+      - "3443:443"
+    volumes:
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - ma_electrical-backend
+    container_name: ma_electrical-frontend
+    networks:
+      - electrical-network
+
+volumes:
+  pgdata_electrical:
+  uploads_electrical:
+
+networks:
+  electrical-network:
+    driver: bridge
