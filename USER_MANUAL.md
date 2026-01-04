@@ -60,6 +60,21 @@
 28. [System Settings](#28-system-settings)
 29. [Notifications](#29-notifications)
 
+## Part XI: Technical Audit Reference
+30. [Technical Architecture](#30-technical-architecture)
+31. [Frontend Component Reference](#31-frontend-component-reference)
+32. [User Roles Technical Details](#32-user-roles-technical-details)
+33. [API Endpoints Reference](#33-api-endpoints-reference)
+34. [Inventory Scanner Technical Notes](#34-inventory-scanner-technical-notes)
+35. [Reports Module Technical Details](#35-reports-module-technical-details)
+36. [Notification System Technical Details](#36-notification-system-technical-details)
+37. [Work Order Status Flow](#37-work-order-status-flow)
+38. [Purchase Order Status Flow](#38-purchase-order-status-flow)
+39. [Common Testing Procedures](#39-common-testing-procedures)
+40. [File Structure Summary](#40-file-structure-summary)
+41. [Audit Checklist](#41-audit-checklist)
+42. [Audit History](#42-audit-history)
+
 ## Appendices
 - [Appendix A: Role Permissions Matrix](#appendix-a-role-permissions-matrix)
 - [Appendix B: Status Definitions](#appendix-b-status-definitions)
@@ -2004,7 +2019,572 @@ If you encounter issues not covered here:
 
 ---
 
+# Part XI: Technical Audit Reference
+
+This section contains technical information for system administrators and developers performing audits or maintenance.
+
+---
+
+# 30. Technical Architecture
+
+## 30.1 Application Stack
+
+| Component | Technology | Location |
+|-----------|------------|----------|
+| **Frontend** | React 18 with Material-UI (MUI) | `frontend/src/` |
+| **Backend** | Python FastAPI | `backend/` |
+| **Database** | PostgreSQL | Docker container: `ma_electrical-db` |
+| **Hosting** | Docker containers | `docker-compose.yml` |
+| **Domain** | app.krisjohnsonelectrical.com | Production URL |
+
+## 30.2 Database Configuration
+
+| Setting | Value |
+|---------|-------|
+| **Database Name** | `ma_electrical_inventory` |
+| **Port** | 5432 (default PostgreSQL) |
+| **User Column** | `active` (not `is_active`) |
+| **Password Hashing** | bcrypt |
+
+## 30.3 Authentication System
+
+| Feature | Implementation |
+|---------|---------------|
+| **Login Endpoint** | `POST /login` with OAuth2PasswordRequestForm |
+| **Token Type** | JWT (JSON Web Token) |
+| **Token Duration** | 1 hour |
+| **Password Verification** | `bcrypt.checkpw(plain.encode('utf-8'), hashed.encode('utf-8'))` |
+
+### Admin User Creation Script
+```bash
+# From backend directory
+python scripts/create_admin.py --username USERNAME --password PASSWORD --role admin --force
+```
+
+---
+
+# 31. Frontend Component Reference
+
+## 31.1 Main Entry Points
+
+| File | Purpose |
+|------|---------|
+| `frontend/src/App.js` | Main app with routing configuration |
+| `frontend/src/components/Home.js` | Home dashboard (desktop) |
+| `frontend/src/components/MobileDashboard.js` | Pem2 Dashboard (mobile-optimized) |
+
+## 31.2 Module Components
+
+| Module | Component File | Route |
+|--------|---------------|-------|
+| **Jobs** | `components/JobsList.js` | `/jobs` |
+| **Job Details** | `components/JobDetail.js` | `/jobs/:id` |
+| **Work Orders** | `components/WorkOrdersList.js` | `/work-orders` |
+| **Work Order Detail** | `components/WorkOrderDetail.js` | `/work-orders/:id` |
+| **Schedule** | `components/Schedule.js` | `/schedule` |
+| **Schedule - List Day** | `components/schedule/ScheduleListDay.js` | Tab 0 (admin) |
+| **Schedule - Calendar** | `components/schedule/ScheduleCalendar.js` | Tab 1 (admin) |
+| **Schedule - Dispatch** | `components/schedule/ScheduleDispatch.js` | Tab 2 (admin) |
+| **Schedule - Employee** | `components/schedule/EmployeeCalendar.js` | Tab 3 (admin) |
+| **Schedule - Map** | `components/schedule/ScheduleMap.js` | Tab 4 (admin) |
+| **Timesheet** | `components/time/Timesheet.js` | `/timesheet` |
+| **Inventory** | `components/InventoryList.js` | `/inventory` |
+| **Inventory Scanner** | `components/InventoryScanner.js` | `/inventory/scan` |
+| **Customers** | `components/Customers.js` | `/customers` |
+| **Quotes** | `components/QuotesList.js` | `/quotes` |
+| **Invoices** | `components/InvoiceList.js` | `/invoices` |
+| **Purchase Orders** | `components/PurchaseOrders.js` | `/purchase-orders` |
+| **Reports** | `components/Reports.js` | `/reports` |
+| **User Management** | `components/admin/UserManagement.js` | `/admin/users` |
+| **PTO Approval** | `components/admin/PTOApproval.js` | `/admin/pto-approval` |
+| **Notifications** | `components/NotificationCenter.js` | (Header component) |
+
+## 31.3 Shared Components
+
+| Component | Purpose |
+|-----------|---------|
+| `components/AppHeader.js` | Universal header bar with navigation |
+| `components/common/ConfirmDialog.js` | Reusable confirmation dialogs |
+| `components/schedule/ModifyCrewDialog.js` | Add/edit crew assignments |
+| `components/schedule/ScheduleContext.js` | Schedule state management |
+
+## 31.4 Schedule View Differences by Role
+
+**Admin/Manager (5 tabs):**
+1. List - Day (index 0)
+2. Calendar (index 1)
+3. Dispatch (index 2) - **DEFAULT**
+4. Employee (index 3)
+5. Map (index 4)
+
+**Technician/Office (3 tabs):**
+1. Map (index 0) - **DEFAULT**
+2. Employee (index 1)
+3. Calendar (index 2)
+
+---
+
+# 32. User Roles Technical Details
+
+## 32.1 Role Values in Database
+
+| Role | Value | Display Name |
+|------|-------|--------------|
+| Administrator | `admin` | "Administrator" |
+| Manager | `manager` | "Manager" |
+| Technician | `technician` | "Technician" |
+| Office | `office` | "Office" |
+
+**Note:** Legacy role `employee` is treated same as `technician` in Schedule.js.
+
+## 32.2 Module Access by Role (from AppHeader.js)
+
+| Module | Path | Admin | Manager | Technician | Office |
+|--------|------|:-----:|:-------:|:----------:|:------:|
+| Jobs | `/jobs` | Yes | Yes | Yes | Yes |
+| Work Orders | `/work-orders` | Yes | Yes | No | No |
+| Schedule | `/schedule` | Yes | Yes | Yes | Yes |
+| Customers | `/customers` | Yes | Yes | Yes | Yes |
+| Inventory | `/inventory` | Yes | Yes | Yes | Yes |
+| Timesheet | `/timesheet` | Yes | Yes | Yes | Yes |
+| Quotes | `/quotes` | Yes | Yes | No | No |
+| Invoices | `/invoices` | Yes | No | No | Yes |
+| Purchase Orders | `/purchase-orders` | Yes | No | No | No |
+| Reports | `/reports` | Yes | No | No | No |
+| PTO Approval | `/admin/pto-approval` | Yes | Yes | No | No |
+| User Management | `/admin/users` | Yes | No | No | No |
+
+---
+
+# 33. API Endpoints Reference
+
+## 33.1 Authentication
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/login` | POST | OAuth2 login, returns JWT token |
+| `/me` | GET | Get current user info |
+
+## 33.2 Core Resources
+
+**Note:** All endpoints use `/api` prefix in production (e.g., `/api/work-orders`).
+
+| Resource | Endpoints |
+|----------|-----------|
+| **Users** | `GET/POST /api/admin/users`, `PUT/DELETE /api/admin/users/{username}` |
+| **Jobs/Work Orders** | `GET/POST /api/work-orders`, `GET/PUT/DELETE /api/work-orders/{id}` |
+| **Inventory** | `GET/POST /api/inventory`, `GET/PUT/DELETE /api/inventory/{id}` |
+| **Customers** | `GET/POST /api/customers`, `GET/PUT/DELETE /api/customers/{id}` |
+| **Quotes** | `GET/POST /api/quotes`, `GET/PUT/DELETE /api/quotes/{id}` |
+| **Invoices** | `GET/POST /api/invoices`, `GET/PUT /api/invoices/{id}` |
+| **Purchase Orders** | `GET/POST /api/purchase-orders`, `GET/PATCH/DELETE /api/purchase-orders/{id}` |
+| **Schedule** | `GET /api/calendar/schedule?start_date=&end_date=` |
+| **Schedule Dates** | `GET/POST /api/work-orders/{id}/schedule-dates` |
+| **Time Entries** | `GET /api/time-entries/my-week`, `POST /api/time-entries/batch` |
+| **PTO** | `GET /api/pto/pending`, `POST /api/pto/{id}/approve` |
+| **Notifications** | `GET /api/notifications`, `PUT /api/notifications/{id}/read` |
+| **Reports** | `GET /api/reports/financial-snapshot?period=` |
+
+## 33.3 API Base URL
+
+Configured in `frontend/src/api.js` as `API_BASE_URL`.
+
+**Production URL:** `https://app.krisjohnsonelectrical.com/api`
+
+---
+
+# 34. Inventory Scanner Technical Notes
+
+## 34.1 Scanner Component Structure
+
+The InventoryScanner (`components/InventoryScanner.js`) has three conditional return blocks:
+1. **Mobile Camera View** - When `isMobile && scannerActive`
+2. **Mobile Item Found View** - When `isMobile && foundItem`
+3. **Desktop/Default View** - Main scanner interface
+
+## 34.2 Known Issue: Unknown Barcode Workflow
+
+**Issue:** When scanning an unknown barcode on mobile, the screen may show black because dialogs render behind a fixed overlay with `zIndex: 9999`.
+
+**Fix Applied (January 4, 2026):** Added `sx={{ zIndex: 10000 }}` AND `slotProps={{ backdrop: { sx: { zIndex: 10000 } } }}` to dialogs in mobile camera view:
+- `unknownBarcodeDialogOpen` dialog
+- `linkToExistingOpen` dialog
+- `createNewOpen` dialog
+
+The key fix was adding the `slotProps.backdrop` configuration - MUI Dialog's backdrop is a separate element that also needs its zIndex set to appear above the fixed position overlay.
+
+**Fix Location:** Lines ~847-1024 in InventoryScanner.js (inside mobile camera view return block)
+
+**Status:** Fixed - needs verification on mobile devices.
+
+## 34.3 Inventory Counting Features (Updated January 4, 2026)
+
+The Scanner now includes optimized inventory counting features using the `/inventory/{id}/cycle-count` API endpoint. This properly tracks:
+- `last_counted_date` - When item was last counted
+- `next_count_date` - When item should be counted again (based on ABC classification)
+- Variance statistics and tolerance checking
+
+**Primary Counting Actions:**
+| Button | Action | API Used |
+|--------|--------|----------|
+| **Count OK** (Green) | Confirms system count matches physical count | `recordCycleCount()` |
+| **Set Count** (Orange) | Enter physical count, system calculates variance | `recordCycleCount()` |
+
+**Secondary Actions:**
+| Button | Action | API Used |
+|--------|--------|----------|
+| **+/-** | Quick add/subtract adjustment | `adjustStock()` |
+| **Move** | Change location/bin | `updateInventoryItem()` |
+| **WO** | Add to work order | `addMaterialToWorkOrder()` |
+
+**Workflow for Warehouse Inventory Count:**
+1. Scan item barcode
+2. See current system count displayed
+3. If count matches → tap "Count OK" → auto-advances to next scan
+4. If count differs → tap "Set Count" → enter physical count → save → auto-advances
+
+**Note:** The "Rapid Cycle Count" button was removed from the Inventory page as of January 4, 2026. All counting functionality is now consolidated into the Scanner for a unified mobile-friendly experience.
+
+## 34.4 Scanner Dialogs State Management
+
+| State | Purpose |
+|-------|---------|
+| `scannerActive` | Camera is actively scanning |
+| `setCountOpen` | Set Count dialog open |
+| `unknownBarcodeDialogOpen` | Show options for unknown barcode |
+| `linkToExistingOpen` | Link barcode to existing item |
+| `createNewOpen` | Create new item from barcode |
+| `searching` | Loading state during barcode lookup |
+
+---
+
+# 35. Reports Module Technical Details
+
+## 35.1 Financial Snapshot Metrics
+
+The Reports component (`components/Reports.js`) fetches from `/reports/financial-snapshot?period=`:
+
+| Metric | Description |
+|--------|-------------|
+| `completed_revenue` | Revenue from completed jobs |
+| `total_revenue_pipeline` | Total pending revenue |
+| `completed_gross_profit` | Profit after material costs |
+| `completed_material_cost` | Material costs for completed jobs |
+| `total_jobs` | Total job count |
+| `active_jobs` | Jobs in progress |
+| `completed_jobs` | Finished jobs |
+| `inventory_value` | Current inventory value |
+| `total_labor_cost` | Labor costs |
+| `total_labor_revenue` | Revenue from labor |
+| `total_invoiced` | Total invoiced amount |
+| `total_paid` | Total payments received |
+| `outstanding_invoices` | Unpaid invoice amount |
+
+## 35.2 Period Options
+
+| Period | Backend Value | Display |
+|--------|---------------|---------|
+| Last 7 Days | `weekly` | Weekly |
+| Last 30 Days | `monthly` | Monthly |
+| Last 90 Days | `quarterly` | Quarterly |
+| Last Year | `annually` | Annually |
+| All Time | `all-time` | All Time |
+
+---
+
+# 36. Notification System Technical Details
+
+## 36.1 Notification Types
+
+| Type Value | Icon | Description |
+|------------|------|-------------|
+| `inventory` | InventoryIcon | Stock alerts |
+| `work_order` | WorkOrderIcon | Job updates |
+| `schedule` | ScheduleIcon | Schedule changes |
+| `license` | BadgeIcon | License expiration |
+| `invoice` | InvoiceIcon | Payment updates |
+| `timesheet` | TimesheetIcon | Time tracking |
+| `system` | SystemIcon | System alerts |
+
+## 36.2 Severity Levels
+
+| Severity | Color | Icon |
+|----------|-------|------|
+| `info` | Blue | InfoIcon |
+| `warning` | Orange | WarningIcon |
+| `error` | Red | ErrorIcon |
+| `success` | Green | SuccessIcon |
+
+## 36.3 Polling Interval
+
+Notifications poll every **60 seconds** (`setInterval(fetchUnreadCount, 60000)`).
+
+---
+
+# 37. Work Order Status Flow
+
+```
+                    ┌──────────────┐
+                    │   Pending    │
+                    └──────┬───────┘
+                           │ (assign crew)
+                    ┌──────▼───────┐
+                    │  Scheduled   │
+                    └──────┬───────┘
+                           │ (first time entry)
+                    ┌──────▼───────┐
+                    │ In Progress  │◄────┐
+                    └──────┬───────┘     │
+                           │             │
+              ┌────────────┼────────────┐│
+              │            │            ││
+       ┌──────▼──────┐ ┌───▼────┐ ┌─────▼────┐
+       │  Completed  │ │Delayed │ │ On Hold  │
+       └──────┬──────┘ └────────┘ └──────────┘
+              │
+       ┌──────▼──────┐
+       │  Invoiced   │
+       └─────────────┘
+
+       ┌─────────────┐
+       │  Cancelled  │ (can happen from any status)
+       └─────────────┘
+```
+
+---
+
+# 38. Purchase Order Status Flow
+
+```
+Draft → Pending Approval → Approved → Ordered → Partial → Received
+                   ↓                      ↓
+              Cancelled               Cancelled
+```
+
+---
+
+# 39. Common Testing Procedures
+
+## 39.1 Testing Authentication
+
+**IMPORTANT:** Production API uses `/api` prefix for all endpoints.
+
+```bash
+# URL encode special characters (! = %21, @ = %40, etc.)
+curl -X POST "https://app.krisjohnsonelectrical.com/api/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=testuser&password=TestPass%21"
+
+# Response includes: access_token, token_type, username, role
+```
+
+## 39.2 Testing Protected Endpoints
+
+```bash
+# Get token first, then:
+TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# Test user info
+curl -X GET "https://app.krisjohnsonelectrical.com/api/admin/users" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Test work orders
+curl -X GET "https://app.krisjohnsonelectrical.com/api/work-orders" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Test inventory
+curl -X GET "https://app.krisjohnsonelectrical.com/api/inventory" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+## 39.3 Database Direct Access
+
+```sql
+-- Check users
+SELECT username, full_name, role, active FROM users;
+
+-- Check active admin users
+SELECT username, full_name FROM users WHERE role = 'admin' AND active = true;
+```
+
+---
+
+# 40. File Structure Summary
+
+```
+MA_Electrical_Inventory/
+├── frontend/
+│   ├── src/
+│   │   ├── App.js                    # Main app with routes
+│   │   ├── api.js                    # API functions
+│   │   ├── components/
+│   │   │   ├── Home.js               # Desktop home dashboard
+│   │   │   ├── MobileDashboard.js    # Mobile dashboard
+│   │   │   ├── AppHeader.js          # Universal header
+│   │   │   ├── JobsList.js           # Jobs list (field view)
+│   │   │   ├── JobDetail.js          # Job detail (field view)
+│   │   │   ├── WorkOrdersList.js     # Work orders list
+│   │   │   ├── WorkOrderDetail.js    # Work order detail
+│   │   │   ├── Schedule.js           # Schedule container
+│   │   │   ├── InventoryList.js      # Inventory management
+│   │   │   ├── InventoryScanner.js   # Barcode scanner
+│   │   │   ├── Customers.js          # Customer management
+│   │   │   ├── QuotesList.js         # Quotes list
+│   │   │   ├── InvoiceList.js        # Invoice list
+│   │   │   ├── PurchaseOrders.js     # Purchase orders
+│   │   │   ├── Reports.js            # Financial reports
+│   │   │   ├── NotificationCenter.js # Notification popup
+│   │   │   ├── schedule/             # Schedule sub-components
+│   │   │   │   ├── ScheduleContext.js
+│   │   │   │   ├── ScheduleListDay.js
+│   │   │   │   ├── ScheduleCalendar.js
+│   │   │   │   ├── ScheduleDispatch.js
+│   │   │   │   ├── ScheduleMap.js
+│   │   │   │   ├── EmployeeCalendar.js
+│   │   │   │   └── ModifyCrewDialog.js
+│   │   │   ├── time/                 # Time tracking
+│   │   │   │   └── Timesheet.js
+│   │   │   └── admin/                # Admin pages
+│   │   │       ├── UserManagement.js
+│   │   │       └── PTOApproval.js
+│   │   └── utils/
+│   │       └── logger.js             # Logging utility
+├── backend/
+│   ├── main.py                       # FastAPI application
+│   ├── scripts/
+│   │   └── create_admin.py           # Admin user creation
+│   └── requirements.txt              # Python dependencies
+├── database/
+│   └── migrations/                   # SQL migrations
+├── backups/                          # Backup snapshots
+└── USER_MANUAL.md                    # This document
+```
+
+---
+
+# 41. Audit Checklist
+
+Use this checklist for future audits:
+
+## 41.1 Authentication & Security
+- [ ] JWT token generation works
+- [ ] Password hashing uses bcrypt
+- [ ] Session timeout is 1 hour
+- [ ] Role-based access control enforced
+
+## 41.2 User Management
+- [ ] Can create new users
+- [ ] Can edit existing users
+- [ ] Can deactivate users
+- [ ] Role changes take effect immediately
+- [ ] License expiration warnings working
+
+## 41.3 Jobs & Work Orders
+- [ ] Create work order with all fields
+- [ ] Assign crew to work order
+- [ ] Status transitions work correctly
+- [ ] Material allocation from inventory
+- [ ] Generate invoice from completed job
+
+## 41.4 Schedule
+- [ ] All 5 tabs work for admin (List-Day, Calendar, Dispatch, Employee, Map)
+- [ ] Technicians see only 3 tabs (Map, Employee, Calendar)
+- [ ] Conflict detection for overlapping schedules
+- [ ] PTO blocking prevents scheduling on approved time off
+
+## 41.5 Timesheet & PTO
+- [ ] Add job rows to timesheet
+- [ ] Add non-job time categories
+- [ ] Submit timesheet
+- [ ] Request PTO
+- [ ] Approve/deny PTO (admin/manager)
+- [ ] Call-out sick functionality
+
+## 41.6 Inventory
+- [ ] Search works across all fields
+- [ ] Low stock filter works
+- [ ] Quick stock adjust
+- [ ] Add/edit items
+- [ ] Assign to work order (bulk)
+- [ ] Barcode scanner (desktop and mobile)
+- [ ] Scanner "Count OK" button works (uses cycle-count API)
+- [ ] Scanner "Set Count" dialog works (uses cycle-count API)
+- [ ] Scanner "Link to Existing Item" search works
+- [ ] Scanner unknown barcode workflow (create new or link)
+
+## 41.7 Customers
+- [ ] Add new customer with all fields
+- [ ] Edit existing customer
+- [ ] Delete customer
+- [ ] Residential/Commercial/Industrial types
+
+## 41.8 Quotes
+- [ ] Create new quote
+- [ ] Create from template
+- [ ] Clone quote
+- [ ] Send to customer
+- [ ] Convert to work order
+- [ ] Save as template
+
+## 41.9 Invoices
+- [ ] View invoice list
+- [ ] Filter by status
+- [ ] View invoice detail
+- [ ] Overdue indicators showing
+
+## 41.10 Purchase Orders
+- [ ] Create PO with vendor and items
+- [ ] Status workflow (Draft → Ordered → Received)
+- [ ] Receive items updates inventory
+- [ ] Delete draft POs
+
+## 41.11 Reports
+- [ ] Financial snapshot loads
+- [ ] All time periods work (weekly, monthly, quarterly, annually, all-time)
+- [ ] Revenue, profit, jobs, inventory metrics display
+
+## 41.12 Notifications
+- [ ] Bell icon shows unread count
+- [ ] Click notification navigates to related item
+- [ ] Mark as read works
+- [ ] Mark all read works
+- [ ] Polling updates count (60 second interval)
+
+---
+
+---
+
+# 42. Audit History
+
+| Date | Auditor | Findings |
+|------|---------|----------|
+| January 4, 2026 | Claude Code | All API endpoints verified working. Added `/api` prefix correction. Authentication, role-based access, CRUD operations all functional. |
+| January 4, 2026 (Pass 2) | Claude Code | **Fixed:** Mobile scanner dialog backdrop zIndex issue (added `slotProps.backdrop`). **Verified:** No deprecated React patterns, proper memory leak prevention (setInterval cleanup), parameterized SQL queries, CORS properly configured, secrets loaded from env vars. **Note:** Bundle size is 549KB (consider code splitting for optimization). Build passes with no errors. |
+| January 4, 2026 (Pass 3) | Claude Code | **Fixed:** "Link to Existing Item" search not returning results - frontend was looking for `results.items` but backend returns `results.inventory`. Updated `handleSearchExistingItems()` in InventoryScanner.js to check for `results.inventory` first. |
+| January 4, 2026 (Pass 4) | Claude Code | **Scanner Counting Optimization:** Added "Count OK" and "Set Count" buttons for inventory counting. Updated to use `/inventory/{id}/cycle-count` API which properly tracks `last_counted_date`, `next_count_date`, and variance. **Removed:** "Rapid Cycle Count" feature from Inventory page (redundant). All counting now consolidated in Scanner with mobile camera support. Added `recordCycleCount()` to api.js. Bundle size reduced to 548KB. |
+
+---
+
+# Future Audit Notes
+
+**For future developers/auditors:**
+
+1. **Cycle Count vs Adjust Stock APIs:**
+   - Use `recordCycleCount()` for formal inventory counts - tracks dates and variance
+   - Use `adjustStock()` for quick corrections - simpler, no date tracking
+   - Scanner "Count OK" and "Set Count" use cycle-count API
+   - Scanner "+/-" button uses adjust-stock API
+
+2. **RapidCycleCount.js is unused** - File still exists but is not imported anywhere. Can be deleted to reduce codebase size.
+
+3. **CycleCountExecutionDialog.js and CycleCountSettingsDialog.js** - Still used by InventoryAnalyticsReport.js for scheduled cycle counts. Do not delete.
+
+4. **Mobile Scanner zIndex:** Critical fix is in `slotProps.backdrop` - MUI Dialog backdrop needs separate zIndex from the dialog itself.
+
+---
+
 **End of User Manual**
 
-*Pem2 Services - Version 2.0*
-*Last Updated: December 2024*
+*Pem2 Services - Version 2.5*
+*Last Updated: January 4, 2026*
+*Includes Technical Audit Reference*

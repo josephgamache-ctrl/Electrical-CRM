@@ -25,7 +25,6 @@ import {
   Star as StarIcon,
   QrCodeScanner as ScannerIcon,
   Assignment as AssignmentIcon,
-  Speed as SpeedIcon,
   PushPin as PushPinIcon,
   Clear as ClearIcon,
 } from "@mui/icons-material";
@@ -36,7 +35,6 @@ import { useTheme } from "@mui/material/styles";
 import QuickStockAdjustDialog from "./QuickStockAdjustDialog";
 import InventoryFormDialog from "./InventoryFormDialog";
 import AssignToWorkOrderDialog from "./AssignToWorkOrderDialog";
-import RapidCycleCount from "./RapidCycleCount";
 import AppHeader from "./AppHeader";
 import logger from '../utils/logger';
 const InventoryList = () => {
@@ -58,7 +56,6 @@ const InventoryList = () => {
   const [quickAdjustOpen, setQuickAdjustOpen] = useState(false);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [rapidCountOpen, setRapidCountOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [formMode, setFormMode] = useState("add");
   const [successMessage, setSuccessMessage] = useState("");
@@ -446,18 +443,6 @@ const InventoryList = () => {
         )}
         <Button
           size="small"
-          startIcon={<SpeedIcon />}
-          onClick={() => setRapidCountOpen(true)}
-          sx={{
-            color: 'white',
-            textTransform: 'none',
-            '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
-          }}
-        >
-          Rapid Count
-        </Button>
-        <Button
-          size="small"
           startIcon={<ScannerIcon />}
           onClick={() => navigate('/inventory/scan')}
           sx={{
@@ -466,7 +451,7 @@ const InventoryList = () => {
             '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
           }}
         >
-          Scan
+          Scan / Count
         </Button>
       </AppHeader>
 
@@ -625,15 +610,6 @@ const InventoryList = () => {
         onClose={() => setAssignDialogOpen(false)}
         selectedItems={getSelectedItems()}
         onSuccess={handleAssignSuccess}
-      />
-
-      {/* Rapid Cycle Count Dialog */}
-      <RapidCycleCount
-        open={rapidCountOpen}
-        onClose={() => {
-          setRapidCountOpen(false);
-          loadInventory(); // Refresh inventory after counting
-        }}
       />
 
       {/* Success Snackbar */}

@@ -263,6 +263,36 @@ async function fetchStockTransactions(id) {
   }
 }
 
+/**
+ * Record a cycle count for inventory item.
+ * This properly tracks last_counted_date, next_count_date, and variance.
+ * Better than adjustStock for formal inventory counts.
+ * @param {number} itemId - The inventory item ID (numeric)
+ * @param {number} actualQuantity - The physical count
+ * @param {string} notes - Optional notes about the count
+ */
+async function recordCycleCount(itemId, actualQuantity, notes = null) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/inventory/${itemId}/cycle-count`, {
+      method: "POST",
+      headers: withAuthHeaders(token, { "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        actual_quantity: actualQuantity,
+        notes: notes,
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `HTTP ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Cycle count error for item ${itemId}:`, error);
+    throw error;
+  }
+}
+
 // ============================================================
 // SEARCH & CATEGORIES
 // ============================================================
@@ -1735,6 +1765,7 @@ export {
   updateInventoryItem,
   deleteInventoryItem,
   adjustStock,
+  recordCycleCount,
   fetchStockTransactions,
   searchInventory,
   fetchCategories,
