@@ -180,7 +180,7 @@ const CycleCountSettingsDialog = ({ open, onClose, onSuccess }) => {
             <Grid container spacing={3}>
               {/* Class A Settings */}
               <Grid item xs={12} md={4}>
-                <Paper elevation={2} sx={{ p: 2, bgcolor: "#e3f2fd", height: "100%" }}>
+                <Paper elevation={2} sx={{ p: 2, bgcolor: 'info.light', height: "100%" }}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                     <Typography variant="h6">Class A</Typography>
                     <Chip label="High Value" color="primary" size="small" />
@@ -222,7 +222,7 @@ const CycleCountSettingsDialog = ({ open, onClose, onSuccess }) => {
 
               {/* Class B Settings */}
               <Grid item xs={12} md={4}>
-                <Paper elevation={2} sx={{ p: 2, bgcolor: "#fff3e0", height: "100%" }}>
+                <Paper elevation={2} sx={{ p: 2, bgcolor: 'warning.light', height: "100%" }}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                     <Typography variant="h6">Class B</Typography>
                     <Chip label="Medium Value" color="warning" size="small" />
@@ -264,7 +264,7 @@ const CycleCountSettingsDialog = ({ open, onClose, onSuccess }) => {
 
               {/* Class C Settings */}
               <Grid item xs={12} md={4}>
-                <Paper elevation={2} sx={{ p: 2, bgcolor: "#f5f5f5", height: "100%" }}>
+                <Paper elevation={2} sx={{ p: 2, bgcolor: 'action.hover', height: "100%" }}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                     <Typography variant="h6">Class C</Typography>
                     <Chip label="Low Value" size="small" />

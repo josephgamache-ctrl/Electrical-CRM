@@ -248,7 +248,7 @@ function PTOApproval() {
             <TableContainer component={Paper}>
               <Table>
                 <TableHead>
-                  <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                  <TableRow sx={{ bgcolor: 'background.default' }}>
                     <TableCell>Employee</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>Dates</TableCell>
@@ -357,7 +357,7 @@ function PTOApproval() {
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
-              <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+              <TableRow sx={{ bgcolor: 'background.default' }}>
                 <TableCell>Employee</TableCell>
                 <TableCell>Type</TableCell>
                 <TableCell>Dates</TableCell>
@@ -437,7 +437,7 @@ function PTOApproval() {
       >
         <DialogTitle
           sx={{
-            bgcolor: approvalDialog.approving ? '#e8f5e9' : '#ffebee',
+            bgcolor: approvalDialog.approving ? 'success.light' : 'error.light',
             display: 'flex',
             alignItems: 'center',
             gap: 1,
@@ -549,7 +549,7 @@ function PTOApproval() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle sx={{ bgcolor: '#e8f5e9' }}>
+        <DialogTitle sx={{ bgcolor: 'success.light' }}>
           PTO Approved - Schedule Updated
         </DialogTitle>
         <DialogContent>
@@ -576,13 +576,13 @@ function PTOApproval() {
                     </Alert>
                   )}
 
-                  <List dense sx={{ bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                  <List dense sx={{ bgcolor: 'background.default', borderRadius: 1 }}>
                     {resultDialog.result.affected_jobs.map((job, idx) => (
                       <React.Fragment key={idx}>
                         {idx > 0 && <Divider />}
                         <ListItem
                           sx={{
-                            bgcolor: job.needs_reassignment ? '#ffebee' : 'transparent',
+                            bgcolor: job.needs_reassignment ? 'error.light' : 'transparent',
                           }}
                         >
                           <ListItemIcon>

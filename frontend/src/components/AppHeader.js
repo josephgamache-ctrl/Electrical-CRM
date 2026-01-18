@@ -36,12 +36,15 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Apps as AppsIcon,
+  LocalShipping as VanIcon,
+  QrCodeScanner as ScannerIcon,
+  AssignmentReturn as ReturnIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getCurrentUser } from '../api';
 import NotificationCenter from './NotificationCenter';
 import logger from '../utils/logger';
-function AppHeader({ title, showSearch = true, showNotifications = true, children }) {
+function AppHeader({ title, subtitle, showSearch = true, showNotifications = true, children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [userName, setUserName] = useState('');
@@ -123,6 +126,9 @@ function AppHeader({ title, showSearch = true, showNotifications = true, childre
       { name: 'Schedule', path: '/schedule', icon: <ScheduleIcon fontSize="small" />, roles: ['admin', 'manager', 'technician', 'office'] },
       { name: 'Customers', path: '/customers', icon: <PeopleIcon fontSize="small" />, roles: ['admin', 'manager', 'technician', 'office'] },
       { name: 'Inventory', path: '/inventory', icon: <InventoryIcon fontSize="small" />, roles: ['admin', 'manager', 'technician', 'office'] },
+      { name: 'Work Vans', path: '/vans', icon: <VanIcon fontSize="small" />, roles: ['admin', 'manager', 'technician', 'office'] },
+      { name: 'Return Rack', path: '/return-rack', icon: <ReturnIcon fontSize="small" />, roles: ['admin', 'manager', 'office'] },
+      { name: 'Job Scanner', path: '/job-scanner', icon: <ScannerIcon fontSize="small" />, roles: ['admin', 'manager', 'technician'] },
       { name: 'Timesheet', path: '/timesheet', icon: <TimeIcon fontSize="small" />, roles: ['admin', 'manager', 'technician', 'office'] },
       { name: 'Quotes', path: '/quotes', icon: <QuoteIcon fontSize="small" />, roles: ['admin', 'manager'] },
       { name: 'Invoices', path: '/invoices', icon: <ReceiptIcon fontSize="small" />, roles: ['admin', 'office'] },
@@ -189,7 +195,7 @@ function AppHeader({ title, showSearch = true, showNotifications = true, childre
     <Paper
       elevation={3}
       sx={{
-        bgcolor: '#1e3a5f',
+        bgcolor: 'secondary.dark',
         color: 'white',
         borderRadius: 0,
         px: 2,
@@ -200,21 +206,19 @@ function AppHeader({ title, showSearch = true, showNotifications = true, childre
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        {/* Left side - Avatar, Nav buttons, and Title */}
+        {/* Left side - Logo, Nav buttons, and Title */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Avatar
+            src="/icons/icon-96x96.png"
+            alt="KJ"
             sx={{
               width: 48,
               height: 48,
-              bgcolor: '#2d5a87',
               cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '1.2rem',
+              bgcolor: 'background.paper',
             }}
             onClick={handleMenuClick}
-          >
-            {userName.charAt(0).toUpperCase()}
-          </Avatar>
+          />
 
           {/* Navigation buttons */}
           <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
@@ -251,10 +255,14 @@ function AppHeader({ title, showSearch = true, showNotifications = true, childre
           </Box>
 
           <Box sx={{ ml: 1 }}>
-            <Typography variant="h5" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
               {title}
             </Typography>
-            {userRole && (
+            {subtitle ? (
+              <Typography variant="caption" sx={{ opacity: 0.85 }}>
+                {subtitle}
+              </Typography>
+            ) : userRole && (
               <Typography variant="caption" sx={{ opacity: 0.8 }}>
                 {getRoleDisplay()}
               </Typography>
@@ -299,13 +307,20 @@ function AppHeader({ title, showSearch = true, showNotifications = true, childre
           }
         }}
       >
-        <Box sx={{ px: 2, py: 1.5 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            {userName}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {getRoleDisplay()}
-          </Typography>
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Avatar
+            src="/icons/icon-96x96.png"
+            alt="KJ"
+            sx={{ width: 40, height: 40, bgcolor: 'background.paper' }}
+          />
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              {userName}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {getRoleDisplay()}
+            </Typography>
+          </Box>
         </Box>
         <Divider />
         <MenuItem onClick={handleHome}>
@@ -315,12 +330,12 @@ function AppHeader({ title, showSearch = true, showNotifications = true, childre
           <ListItemText>Home</ListItemText>
         </MenuItem>
 
-        {/* Modules Navigation Section */}
+        {/* Pages Navigation Section */}
         <MenuItem onClick={handleModulesToggle}>
           <ListItemIcon>
             <AppsIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Modules</ListItemText>
+          <ListItemText>Pages</ListItemText>
           {modulesOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
         </MenuItem>
         <Collapse in={modulesOpen} timeout="auto" unmountOnExit>

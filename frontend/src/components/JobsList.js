@@ -117,7 +117,7 @@ function JobsList() {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppHeader title="Jobs">
         <FormControl size="small" sx={{ minWidth: 120, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1 }}>
           <Select
@@ -182,9 +182,14 @@ function JobsList() {
                 >
                   <CardContent sx={{ flexGrow: 1 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
-                      <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#FF6B00' }}>
-                        {wo.work_order_number}
-                      </Typography>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                          {wo.service_address || 'No Address'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {wo.work_order_number}
+                        </Typography>
+                      </Box>
                       <Chip
                         label={wo.status?.replace('_', ' ').toUpperCase()}
                         color={getStatusColor(wo.status)}
@@ -217,24 +222,6 @@ function JobsList() {
                         {wo.first_name} {wo.last_name}
                       </Typography>
                     </Box>
-
-                    {wo.service_address && (
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
-                        <LocationIcon sx={{ fontSize: 18, mr: 1, color: 'text.secondary', mt: 0.3 }} />
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                          }}
-                        >
-                          {wo.service_address}
-                        </Typography>
-                      </Box>
-                    )}
 
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                       <CalendarIcon sx={{ fontSize: 18, mr: 1, color: 'text.secondary' }} />
@@ -274,7 +261,7 @@ function JobsList() {
                       size="small"
                       fullWidth
                       variant="contained"
-                      sx={{ bgcolor: '#FF6B00', '&:hover': { bgcolor: '#ff8533' } }}
+                      sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.light' } }}
                       onClick={() => navigate(`/jobs/${wo.id}`)}
                     >
                       View Job Details

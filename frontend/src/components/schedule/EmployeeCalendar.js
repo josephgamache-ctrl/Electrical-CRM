@@ -88,7 +88,6 @@ function EmployeeCalendar({ userRole }) {
 
   // Ref for the calendar grid container (for scrolling to default time)
   const calendarGridRef = useRef(null);
-  const hasScrolledToDefault = useRef(false);
 
   // Use shared schedule context for synchronized data across all schedule tabs
   const {
@@ -126,18 +125,17 @@ function EmployeeCalendar({ userRole }) {
     }
   }, [SLOT_HEIGHT]);
 
-  // Scroll to default time (7 AM) on initial load
+  // Scroll to default time (7 AM) on initial load and when week changes
   useEffect(() => {
-    if (!loading && calendarGridRef.current && !hasScrolledToDefault.current) {
+    if (!loading && calendarGridRef.current) {
       // Small delay to ensure DOM is fully rendered
       const scrollTimer = setTimeout(() => {
         scrollToDefaultTime();
-        hasScrolledToDefault.current = true;
       }, 100);
 
       return () => clearTimeout(scrollTimer);
     }
-  }, [loading, scrollToDefaultTime]);
+  }, [loading, scrollToDefaultTime, weekStart]);
 
   // Set default employee when employees load
   useEffect(() => {
@@ -188,11 +186,27 @@ function EmployeeCalendar({ userRole }) {
     });
   }, [allWorkOrders, selectedEmployee, weekStart]);
 
-  // Get unassigned jobs
+  // Get unassigned jobs - jobs that need crew assignment
   const unassignedJobs = useMemo(() => {
-    return allWorkOrders.filter(wo =>
-      !wo.assigned_to && wo.status !== 'completed' && wo.status !== 'canceled'
-    );
+    const excludedStatuses = ['completed', 'cancelled', 'canceled', 'invoiced', 'paid'];
+
+    return allWorkOrders.filter(wo => {
+      // Must not be in excluded statuses
+      if (excludedStatuses.includes(wo.status)) return false;
+
+      // Handle delayed status with new delay system
+      if (wo.status === 'delayed') {
+        // If indefinitely delayed (no end date), exclude from unassigned
+        if (wo.delay_start_date && !wo.delay_end_date) return false;
+        // Date-range delays: still show in unassigned (crew can be scheduled outside delay range)
+      }
+
+      // Must have start_date set
+      if (!wo.start_date && !wo.scheduled_date) return false;
+
+      // Must not have assigned_to (legacy field) or have no crew scheduled
+      return !wo.assigned_to;
+    });
   }, [allWorkOrders]);
 
   // Get all active jobs for multi-day scheduling
@@ -206,14 +220,12 @@ function EmployeeCalendar({ userRole }) {
     const newWeekStart = new Date(weekStart);
     newWeekStart.setDate(weekStart.getDate() + (direction * 7));
     setWeekStart(newWeekStart);
-    // Scroll to 7 AM after a short delay to allow DOM update
-    setTimeout(() => scrollToDefaultTime(), 100);
+    // Note: scrollToDefaultTime is called by the useEffect when weekStart changes
   };
 
   const handleTodayClick = () => {
     setWeekStart(getStartOfWeek(new Date()));
-    // Scroll to 7 AM after a short delay to allow DOM update
-    setTimeout(() => scrollToDefaultTime(), 100);
+    // Note: scrollToDefaultTime is called by the useEffect when weekStart changes
   };
 
   // Click on time slot - open job selector to pick a job
@@ -258,9 +270,11 @@ function EmployeeCalendar({ userRole }) {
   };
 
   // Handle success from ModifyCrewDialog
-  const handleModifyCrewSuccess = (result) => {
+  const handleModifyCrewSuccess = async (result) => {
     setSuccess(result.message);
     setTimeout(() => setSuccess(null), 3000);
+    // Ensure schedule data is refreshed to show updates in the calendar
+    await refreshSchedule();
   };
 
   // Get schedule entries for a specific day (uses per-employee schedule data with times)
@@ -555,7 +569,7 @@ function EmployeeCalendar({ userRole }) {
                   p: 1.5,
                   cursor: 'pointer',
                   '&:hover': {
-                    bgcolor: '#f5f5f5',
+                    bgcolor: 'background.default',
                     transform: 'translateY(-2px)',
                   },
                   transition: 'all 0.2s',
@@ -594,7 +608,7 @@ function EmployeeCalendar({ userRole }) {
         fullWidth
         fullScreen={isMobile}
       >
-        <DialogTitle sx={{ bgcolor: '#1976d2', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: 'secondary.dark', color: 'secondary.contrastText' }}>
           Select Job to Schedule
         </DialogTitle>
         <DialogContent>
@@ -607,16 +621,17 @@ function EmployeeCalendar({ userRole }) {
                 <ListItem
                   key={job.id}
                   sx={{
-                    border: '1px solid #e0e0e0',
+                    border: '1px solid',
+                    borderColor: 'divider',
                     borderRadius: 1,
                     mb: 1,
                     cursor: 'pointer',
-                    '&:hover': { bgcolor: '#f5f5f5' },
+                    '&:hover': { bgcolor: 'action.hover' },
                   }}
                   onClick={() => handleJobSelected(job)}
                 >
                   <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: '#1976d2' }}>
+                    <Avatar sx={{ bgcolor: 'secondary.dark' }}>
                       {job.work_order_number?.charAt(0) || 'J'}
                     </Avatar>
                   </ListItemAvatar>

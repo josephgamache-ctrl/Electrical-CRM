@@ -2,7 +2,7 @@
 
 .desktop-dashboard {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--bg-default, #f5f5f5);
 }
 
 .stats-grid {
@@ -13,7 +13,7 @@
 }
 
 .stat-card {
-  background: white;
+  background: var(--bg-paper, white);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -25,6 +25,7 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
+/* Gradient cards maintain their colors in both modes - they have white text */
 .stat-card.gradient-purple {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -46,7 +47,7 @@
 }
 
 .quick-action-card {
-  background: white;
+  background: var(--bg-paper, white);
   border-radius: 12px;
   padding: 20px;
   text-align: center;

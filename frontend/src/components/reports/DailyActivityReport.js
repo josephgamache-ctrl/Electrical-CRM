@@ -177,7 +177,7 @@ function DailyActivityReport() {
                   <Typography variant="h6" gutterBottom color="primary">
                     Revenue Generated
                   </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#4caf50' }}>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'success.main' }}>
                     {formatCurrency(reportData.summary?.total_revenue || 0)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
@@ -264,10 +264,10 @@ function DailyActivityReport() {
                         <TableCell align="right">{formatHours(entry.hours_worked)}</TableCell>
                         <TableCell align="right">{formatCurrency(entry.pay_rate)}/hr</TableCell>
                         <TableCell align="right">{formatCurrency(entry.bill_rate)}/hr</TableCell>
-                        <TableCell align="right" sx={{ color: '#f44336' }}>
+                        <TableCell align="right" sx={{ color: 'error.main' }}>
                           {formatCurrency(entry.pay_amount)}
                         </TableCell>
-                        <TableCell align="right" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
+                        <TableCell align="right" sx={{ color: 'success.main', fontWeight: 'bold' }}>
                           {formatCurrency(entry.bill_amount)}
                         </TableCell>
                       </TableRow>

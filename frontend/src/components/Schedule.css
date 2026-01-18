@@ -1,10 +1,8 @@
 .schedule-container {
-  background-color: #f5f5f5;
   min-height: 100vh;
 }
 
 .job-card {
-  background: white;
   border-radius: 8px;
   margin-bottom: 12px;
   padding: 16px;
@@ -89,8 +87,6 @@
   display: flex;
   justify-content: space-around;
   padding: 16px 8px;
-  background: white;
-  border-bottom: 1px solid #e0e0e0;
 }
 
 .day-item {
@@ -101,10 +97,6 @@
   cursor: pointer;
   border-radius: 8px;
   transition: all 0.2s;
-}
-
-.day-item:hover {
-  background-color: #f5f5f5;
 }
 
 .day-item.selected {
@@ -125,7 +117,7 @@
 }
 
 .day-item.today .day-number {
-  color: #2c3e8f;
+  color: #FF6B00;
 }
 
 .day-item.selected.today .day-number {

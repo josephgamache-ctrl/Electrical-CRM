@@ -201,7 +201,7 @@ function MyTimecard() {
 
   if (loading && !timecard) {
     return (
-      <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
         <AppHeader title="My Timecard" />
         <Container maxWidth="lg" sx={{ py: 4, display: 'flex', justifyContent: 'center' }}>
           <CircularProgress />
@@ -211,7 +211,7 @@ function MyTimecard() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppHeader title="My Timecard" />
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Paper elevation={3} sx={{ p: 3 }}>
@@ -323,7 +323,7 @@ function MyTimecard() {
               </TableHead>
               <TableBody>
                 {timecard.entries.map((entry) => (
-                  <TableRow key={entry.id} sx={{ backgroundColor: entry.is_locked ? '#f5f5f5' : 'inherit' }}>
+                  <TableRow key={entry.id} sx={{ backgroundColor: entry.is_locked ? 'action.disabledBackground' : 'inherit' }}>
                     <TableCell>{formatDate(entry.work_date)}</TableCell>
                     <TableCell>
                       <Typography variant="body2">{entry.work_order_number}</Typography>
@@ -412,7 +412,7 @@ function MyTimecard() {
             Are you sure you want to delete this time entry?
           </Typography>
           {entryToDelete && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
               <Typography variant="body2"><strong>Date:</strong> {formatDate(entryToDelete.work_date)}</Typography>
               <Typography variant="body2"><strong>Job:</strong> {entryToDelete.work_order_number}</Typography>
               <Typography variant="body2"><strong>Hours:</strong> {entryToDelete.hours_worked}</Typography>
@@ -446,7 +446,7 @@ function MyTimecard() {
                 Any discrepancies between your logged hours and scheduled hours will be flagged for review.
               </Alert>
 
-              <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1, mb: 2 }}>
+              <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1, mb: 2 }}>
                 <Typography variant="subtitle2">Week: {getWeekDateRange()}</Typography>
                 <Typography variant="body2">
                   Total Hours: {timecard?.totals?.total_hours || 0}

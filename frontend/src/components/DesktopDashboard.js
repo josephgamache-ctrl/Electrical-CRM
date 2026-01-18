@@ -49,8 +49,8 @@ function DesktopDashboard() {
       inProgressJobs: 0,
       completedThisWeek: 0,
       pendingJobs: 0,
-      totalCustomers: 0,
-      outstandingBalance: 0,
+      jobsNeedingCrew: 0,
+      lowStockItems: 0,
       serviceCalls: 0,
     },
     todaySchedule: [],
@@ -122,10 +122,27 @@ function DesktopDashboard() {
         workOrder: job,
       }));
 
-      // Also load additional stats
+      // Process upcoming jobs - get address from backend data
+      const upcomingJobsList = (myDashboard.upcoming_jobs || []).map(job => ({
+        id: job.id,
+        number: job.work_order_number,
+        description: job.job_description || 'No description',
+        customer: job.customer_name || 'Unknown',
+        date: job.scheduled_date,
+        address: [job.service_address, job.service_city, job.service_state].filter(Boolean).join(', '),
+        crew: (job.crew || []).map(c => ({
+          username: c.username,
+          full_name: c.full_name,
+          role: c.role,
+          is_lead: c.is_lead
+        })),
+        workOrder: job,
+      }));
+
+      // Also load additional stats for admin/manager
       await Promise.all([
-        loadCustomerStats(token),
-        loadFinancialStats(token),
+        loadJobsNeedingCrew(token),
+        loadLowStockItems(token),
       ]);
 
       if (isMountedRef.current) {
@@ -133,6 +150,7 @@ function DesktopDashboard() {
           ...prev,
           todaySchedule: todayScheduleList,
           serviceCalls: serviceCallsList,
+          upcomingJobs: upcomingJobsList,
           stats: {
             ...prev.stats,
             todayJobs: todayScheduleList.length,
@@ -306,52 +324,68 @@ function DesktopDashboard() {
     }
   };
 
-  const loadCustomerStats = async (token) => {
+  const loadJobsNeedingCrew = async (token) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/customers`, {
+      // Get jobs scheduled in the next 3 days that need crew assigned
+      const today = new Date();
+      const threeDaysLater = new Date();
+      threeDaysLater.setDate(today.getDate() + 3);
+
+      const startDate = today.toISOString().split('T')[0];
+      const endDate = threeDaysLater.toISOString().split('T')[0];
+
+      const response = await fetch(
+        `${API_BASE_URL}/calendar/schedule?start_date=${startDate}&end_date=${endDate}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const scheduleItems = data.schedule || [];
+
+        // Count jobs that have no crew or empty crew array
+        const jobsNeedingCrew = scheduleItems.filter(item =>
+          !item.crew || item.crew.length === 0
+        ).length;
+
+        if (isMountedRef.current) {
+          setDashboardData((prev) => ({
+            ...prev,
+            stats: {
+              ...prev.stats,
+              jobsNeedingCrew: jobsNeedingCrew,
+            },
+          }));
+        }
+      }
+    } catch (err) {
+      logger.error('Failed to load jobs needing crew:', err);
+    }
+  };
+
+  const loadLowStockItems = async (token) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/inventory/low-stock`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
         const data = await response.json();
-        const customers = data.customers || [];
-        setDashboardData((prev) => ({
-          ...prev,
-          stats: {
-            ...prev.stats,
-            totalCustomers: customers.length,
-          },
-        }));
+        // API returns { inventory: [...] }
+        const lowStockItems = data.inventory || data.items || data || [];
+
+        if (isMountedRef.current) {
+          setDashboardData((prev) => ({
+            ...prev,
+            stats: {
+              ...prev.stats,
+              lowStockItems: Array.isArray(lowStockItems) ? lowStockItems.length : 0,
+            },
+          }));
+        }
       }
     } catch (err) {
-      logger.error('Failed to load customer stats:', err);
-    }
-  };
-
-  const loadFinancialStats = async (token) => {
-    try {
-      // Only load for admin/manager
-      if (userRole !== 'admin' && userRole !== 'manager') return;
-
-      // Use financial snapshot endpoint instead
-      const response = await fetch(`${API_BASE_URL}/reports/financial-snapshot`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        const snapshot = await response.json();
-        const outstanding = snapshot.outstanding_invoices || 0;
-
-        setDashboardData((prev) => ({
-          ...prev,
-          stats: {
-            ...prev.stats,
-            outstandingBalance: outstanding,
-          },
-        }));
-      }
-    } catch (err) {
-      logger.error('Failed to load financial stats:', err);
+      logger.error('Failed to load low stock items:', err);
     }
   };
 
@@ -398,7 +432,7 @@ function DesktopDashboard() {
   }
 
   return (
-    <Box sx={{ flexGrow: 1, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
+    <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
       {/* Top AppBar */}
       <AppHeader title="Dashboard" showSearch={false} />
 
@@ -478,16 +512,16 @@ function DesktopDashboard() {
         {(userRole === 'admin' || userRole === 'manager') && (
           <Grid container spacing={3} sx={{ mb: 4 }}>
             <Grid item xs={12} sm={6} md={4}>
-              <Card elevation={2} sx={{ height: '100%' }}>
+              <Card elevation={2} sx={{ height: '100%', cursor: 'pointer' }} onClick={() => navigate('/schedule')}>
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <MoneyIcon sx={{ fontSize: 48, color: '#4caf50', mr: 2 }} />
+                    <GroupAddIcon sx={{ fontSize: 48, color: dashboardData.stats.jobsNeedingCrew > 0 ? 'error.main' : 'success.main', mr: 2 }} />
                     <Box>
-                      <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#4caf50' }}>
-                        ${dashboardData.stats.outstandingBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <Typography variant="h4" sx={{ fontWeight: 'bold', color: dashboardData.stats.jobsNeedingCrew > 0 ? 'error.main' : 'success.main' }}>
+                        {dashboardData.stats.jobsNeedingCrew}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Outstanding Balance
+                        Jobs Need Crew (3 days)
                       </Typography>
                     </Box>
                   </Box>
@@ -496,16 +530,16 @@ function DesktopDashboard() {
             </Grid>
 
             <Grid item xs={12} sm={6} md={4}>
-              <Card elevation={2} sx={{ height: '100%' }}>
+              <Card elevation={2} sx={{ height: '100%', cursor: 'pointer' }} onClick={() => navigate('/inventory')}>
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <PeopleIcon sx={{ fontSize: 48, color: '#2196f3', mr: 2 }} />
+                    <InventoryIcon sx={{ fontSize: 48, color: dashboardData.stats.lowStockItems > 0 ? 'warning.main' : 'success.main', mr: 2 }} />
                     <Box>
-                      <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#2196f3' }}>
-                        {dashboardData.stats.totalCustomers}
+                      <Typography variant="h4" sx={{ fontWeight: 'bold', color: dashboardData.stats.lowStockItems > 0 ? 'warning.main' : 'success.main' }}>
+                        {dashboardData.stats.lowStockItems}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Total Customers
+                        Low Stock Items
                       </Typography>
                     </Box>
                   </Box>
@@ -517,9 +551,9 @@ function DesktopDashboard() {
               <Card elevation={2} sx={{ height: '100%', cursor: 'pointer' }} onClick={() => navigate('/reports')}>
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <TrendingUpIcon sx={{ fontSize: 48, color: '#ff9800', mr: 2 }} />
+                    <TrendingUpIcon sx={{ fontSize: 48, color: 'warning.main', mr: 2 }} />
                     <Box>
-                      <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#ff9800' }}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'warning.main' }}>
                         View Reports
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
@@ -538,7 +572,7 @@ function DesktopDashboard() {
           {/* Today's Schedule */}
           <Grid item xs={12} md={6}>
             <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: '#667eea' }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: 'secondary.main' }}>
                 Today's Schedule
               </Typography>
               {dashboardData.todaySchedule.length > 0 ? (
@@ -546,14 +580,14 @@ function DesktopDashboard() {
                   {dashboardData.todaySchedule.map((job, idx) => (
                     <React.Fragment key={job.id}>
                       <ListItem
-                        sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5' } }}
+                        sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'background.default' } }}
                         onClick={() => navigate(`/jobs/${job.id}`)}
                       >
                         <ListItemText
                           primary={
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                                {job.number}
+                                {job.address || 'No Address'}
                               </Typography>
                               <Chip label={job.status} size="small" color={getStatusColor(job.status)} />
                             </Box>
@@ -564,7 +598,7 @@ function DesktopDashboard() {
                                 {job.description}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
-                                Customer: {job.customer}
+                                {job.number} - Customer: {job.customer}
                               </Typography>
                             </>
                           }
@@ -576,7 +610,7 @@ function DesktopDashboard() {
                               <IconButton
                                 size="small"
                                 onClick={(e) => handleOpenModifyCrew(job, e)}
-                                sx={{ color: '#667eea' }}
+                                sx={{ color: 'secondary.main' }}
                               >
                                 <GroupAddIcon fontSize="small" />
                               </IconButton>
@@ -600,7 +634,7 @@ function DesktopDashboard() {
           {/* Service Calls */}
           <Grid item xs={12} md={6}>
             <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: '#f5576c' }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: 'error.main' }}>
                 Service Calls
               </Typography>
               {dashboardData.serviceCalls.length > 0 ? (
@@ -608,14 +642,14 @@ function DesktopDashboard() {
                   {dashboardData.serviceCalls.map((job, idx) => (
                     <React.Fragment key={job.id}>
                       <ListItem
-                        sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5' } }}
+                        sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'background.default' } }}
                         onClick={() => navigate(`/jobs/${job.id}`)}
                       >
                         <ListItemText
                           primary={
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                                {job.number}
+                                {job.address || 'No Address'}
                               </Typography>
                               <Chip label={job.status} size="small" color={getStatusColor(job.status)} />
                               {job.priority === 'urgent' && (
@@ -629,7 +663,7 @@ function DesktopDashboard() {
                                 {job.description}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
-                                Customer: {job.customer}
+                                {job.number} - Customer: {job.customer}
                               </Typography>
                             </>
                           }
@@ -641,7 +675,7 @@ function DesktopDashboard() {
                               <IconButton
                                 size="small"
                                 onClick={(e) => handleOpenModifyCrew(job, e)}
-                                sx={{ color: '#f5576c' }}
+                                sx={{ color: 'error.main' }}
                               >
                                 <GroupAddIcon fontSize="small" />
                               </IconButton>
@@ -667,7 +701,7 @@ function DesktopDashboard() {
         <Grid container spacing={3} sx={{ mt: 1 }}>
           <Grid item xs={12}>
             <Paper elevation={3} sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: '#667eea' }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: 'secondary.main' }}>
                 Upcoming Jobs (Next 7 Days)
               </Typography>
               {dashboardData.upcomingJobs.length > 0 ? (
@@ -687,7 +721,7 @@ function DesktopDashboard() {
                       <CardContent>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                           <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                            {job.number}
+                            {job.address || 'No Address'}
                           </Typography>
                           <Chip
                             label={new Date(job.date).toLocaleDateString('en-US', {
@@ -702,7 +736,7 @@ function DesktopDashboard() {
                           {job.description}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Customer: {job.customer}
+                          {job.number} - Customer: {job.customer}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
                           <AssignedAvatars assignedWorkers={job.crew} size="small" max={3} />
@@ -711,7 +745,7 @@ function DesktopDashboard() {
                               <IconButton
                                 size="small"
                                 onClick={(e) => handleOpenModifyCrew(job, e)}
-                                sx={{ color: '#667eea' }}
+                                sx={{ color: 'secondary.main' }}
                               >
                                 <GroupAddIcon fontSize="small" />
                               </IconButton>
@@ -751,7 +785,7 @@ function DesktopDashboard() {
                   onClick={() => navigate('/work-orders')}
                 >
                   <CardContent sx={{ textAlign: 'center' }}>
-                    <WorkIcon sx={{ fontSize: 48, color: '#667eea', mb: 1 }} />
+                    <WorkIcon sx={{ fontSize: 48, color: 'secondary.main', mb: 1 }} />
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                       Work Orders
                     </Typography>
@@ -770,7 +804,7 @@ function DesktopDashboard() {
                 onClick={() => navigate('/customers')}
               >
                 <CardContent sx={{ textAlign: 'center' }}>
-                  <PeopleIcon sx={{ fontSize: 48, color: '#2196f3', mb: 1 }} />
+                  <PeopleIcon sx={{ fontSize: 48, color: 'info.main', mb: 1 }} />
                   <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                     Customers
                   </Typography>
@@ -788,7 +822,7 @@ function DesktopDashboard() {
                 onClick={() => navigate('/inventory')}
               >
                 <CardContent sx={{ textAlign: 'center' }}>
-                  <InventoryIcon sx={{ fontSize: 48, color: '#4caf50', mb: 1 }} />
+                  <InventoryIcon sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
                   <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                     Inventory
                   </Typography>
@@ -806,7 +840,7 @@ function DesktopDashboard() {
                 onClick={() => navigate('/schedule')}
               >
                 <CardContent sx={{ textAlign: 'center' }}>
-                  <ScheduleIcon sx={{ fontSize: 48, color: '#2c3e8f', mb: 1 }} />
+                  <ScheduleIcon sx={{ fontSize: 48, color: 'secondary.dark', mb: 1 }} />
                   <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                     Schedule
                   </Typography>
@@ -826,7 +860,7 @@ function DesktopDashboard() {
                   onClick={() => navigate('/quotes')}
                 >
                   <CardContent sx={{ textAlign: 'center' }}>
-                    <DescriptionIcon sx={{ fontSize: 48, color: '#ff9800', mb: 1 }} />
+                    <DescriptionIcon sx={{ fontSize: 48, color: 'warning.main', mb: 1 }} />
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                       Quotes
                     </Typography>
@@ -847,7 +881,7 @@ function DesktopDashboard() {
                   onClick={() => navigate('/invoices')}
                 >
                   <CardContent sx={{ textAlign: 'center' }}>
-                    <ReceiptIcon sx={{ fontSize: 48, color: '#9c27b0', mb: 1 }} />
+                    <ReceiptIcon sx={{ fontSize: 48, color: 'secondary.main', mb: 1 }} />
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                       Invoices
                     </Typography>
@@ -866,7 +900,7 @@ function DesktopDashboard() {
                 onClick={() => navigate('/my-timecard')}
               >
                 <CardContent sx={{ textAlign: 'center' }}>
-                  <ScheduleIcon sx={{ fontSize: 48, color: '#ff9800', mb: 1 }} />
+                  <ScheduleIcon sx={{ fontSize: 48, color: 'warning.main', mb: 1 }} />
                   <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                     My Timecard
                   </Typography>
@@ -886,7 +920,7 @@ function DesktopDashboard() {
                   onClick={() => navigate('/admin/users')}
                 >
                   <CardContent sx={{ textAlign: 'center' }}>
-                    <AdminIcon sx={{ fontSize: 48, color: '#d32f2f', mb: 1 }} />
+                    <AdminIcon sx={{ fontSize: 48, color: 'error.main', mb: 1 }} />
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                       Admin
                     </Typography>
@@ -907,7 +941,7 @@ function DesktopDashboard() {
                   onClick={() => navigate('/purchase-orders')}
                 >
                   <CardContent sx={{ textAlign: 'center' }}>
-                    <ShoppingCartIcon sx={{ fontSize: 48, color: '#00796b', mb: 1 }} />
+                    <ShoppingCartIcon sx={{ fontSize: 48, color: 'success.dark', mb: 1 }} />
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                       Purchase Orders
                     </Typography>
@@ -929,7 +963,7 @@ function DesktopDashboard() {
                   onClick={() => navigate('/order-planning')}
                 >
                   <CardContent sx={{ textAlign: 'center' }}>
-                    <InventoryIcon sx={{ fontSize: 48, color: '#f57c00', mb: 1 }} />
+                    <InventoryIcon sx={{ fontSize: 48, color: 'warning.main', mb: 1 }} />
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                       Order Planning
                     </Typography>

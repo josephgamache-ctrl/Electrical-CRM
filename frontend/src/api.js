@@ -99,7 +99,8 @@ function requireToken() {
 async function fetchInventory() {
   const token = requireToken();
   try {
-    const response = await fetch(`${API_BASE_URL}/inventory`, {
+    // Request all items (limit=10000) since client-side search needs full dataset
+    const response = await fetch(`${API_BASE_URL}/inventory?limit=10000`, {
       headers: withAuthHeaders(token, { "Content-Type": "application/json" }),
     });
     if (!response.ok) {
@@ -307,7 +308,9 @@ async function searchInventory(query) {
       const errorText = await response.text();
       throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
-    return await response.json();
+    const data = await response.json();
+    // API returns { inventory: [...] }, extract the array
+    return data.inventory || data || [];
   } catch (error) {
     logError(`Search inventory error for query '${query}':`, error);
     throw error;
@@ -506,13 +509,17 @@ async function updateWorkOrder(workOrderId, workOrderData) {
   }
 }
 
-async function allocateMaterials(workOrderId, materialIds) {
+async function allocateMaterials(workOrderId, materialIds, quantity = null) {
   const token = requireToken();
   try {
+    const body = { material_ids: materialIds };
+    if (quantity !== null) {
+      body.quantity = quantity;
+    }
     const response = await fetch(`${API_BASE_URL}/work-orders/${workOrderId}/allocate-materials`, {
       method: "POST",
       headers: withAuthHeaders(token, { "Content-Type": "application/json" }),
-      body: JSON.stringify(materialIds),
+      body: JSON.stringify(body),
     });
     if (!response.ok) {
       const errorText = await response.text();
@@ -540,6 +547,54 @@ async function deallocateMaterials(workOrderId, materialIds) {
     return await response.json();
   } catch (error) {
     logError(`Deallocate materials for WO ${workOrderId} error:`, error);
+    throw error;
+  }
+}
+
+async function reconcileMaterials(workOrderId, materials) {
+  /**
+   * Reconcile materials when completing a job.
+   * @param {number} workOrderId - The work order ID
+   * @param {Array} materials - Array of material dispositions:
+   *   {material_id, quantity_used, leftover_qty, leftover_destination, leftover_van_id, notes}
+   */
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/work-orders/${workOrderId}/reconcile-materials`, {
+      method: "POST",
+      headers: withAuthHeaders(token, { "Content-Type": "application/json" }),
+      body: JSON.stringify({ materials }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Reconcile materials for WO ${workOrderId} error:`, error);
+    throw error;
+  }
+}
+
+async function markFieldAcquisition(workOrderId, materialId, quantity = null, cost = null, notes = null) {
+  const token = requireToken();
+  try {
+    const body = { material_id: materialId };
+    if (quantity !== null) body.quantity = quantity;
+    if (cost !== null) body.cost = cost;
+    if (notes !== null) body.notes = notes;
+    const response = await fetch(`${API_BASE_URL}/work-orders/${workOrderId}/field-acquisition`, {
+      method: "POST",
+      headers: withAuthHeaders(token, { "Content-Type": "application/json" }),
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Field acquisition for WO ${workOrderId} error:`, error);
     throw error;
   }
 }
@@ -577,6 +632,27 @@ async function removeMaterialFromWorkOrder(workOrderId, materialId) {
     return await response.json();
   } catch (error) {
     logError(`Remove material from WO ${workOrderId} error:`, error);
+    throw error;
+  }
+}
+
+async function addCustomMaterialToWorkOrder(workOrderId, customMaterial) {
+  // Add a custom/special order material not in inventory
+  // customMaterial: { description, quantity, unit_cost, unit_price, vendor?, manufacturer?, model_number?, notes?, needs_ordering? }
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/work-orders/${workOrderId}/add-custom-material`, {
+      method: "POST",
+      headers: withAuthHeaders(token, { "Content-Type": "application/json" }),
+      body: JSON.stringify(customMaterial),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Add custom material to WO ${workOrderId} error:`, error);
     throw error;
   }
 }
@@ -675,13 +751,18 @@ async function fetchWorkOrderNotes(workOrderId) {
   }
 }
 
-async function addWorkOrderNote(workOrderId, note) {
+async function addWorkOrderNote(workOrderId, note, relatedTaskId = null) {
   const token = requireToken();
   try {
+    const body = { note_text: note };
+    if (relatedTaskId) {
+      body.related_task_id = relatedTaskId;
+      body.note_type = 'task';
+    }
     const response = await fetch(`${API_BASE_URL}/work-orders/${workOrderId}/notes`, {
       method: "POST",
       headers: withAuthHeaders(token, { "Content-Type": "application/json" }),
-      body: JSON.stringify({ note_text: note }),
+      body: JSON.stringify(body),
     });
     if (!response.ok) {
       const errorText = await response.text();
@@ -774,6 +855,24 @@ async function deleteWorkOrderPhoto(workOrderId, photoId) {
     return await response.json();
   } catch (error) {
     logError(`Delete work order photo error:`, error);
+    throw error;
+  }
+}
+
+async function deleteWorkOrder(workOrderId) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/work-orders/${workOrderId}`, {
+      method: "DELETE",
+      headers: withAuthHeaders(token, { "Content-Type": "application/json" }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Delete work order error:`, error);
     throw error;
   }
 }
@@ -963,6 +1062,44 @@ async function testEmailSettings(toEmail) {
   }
 }
 
+async function saveSendGridSettings(settings) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/settings/communication/sendgrid`, {
+      method: "POST",
+      headers: withAuthHeaders(token, { "Content-Type": "application/json" }),
+      body: JSON.stringify(settings),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError('Save SendGrid settings error:', error);
+    throw error;
+  }
+}
+
+async function testSendGridSettings(toEmail) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/settings/communication/sendgrid/test`, {
+      method: "POST",
+      headers: withAuthHeaders(token, { "Content-Type": "application/json" }),
+      body: JSON.stringify({ to_email: toEmail }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError('Test SendGrid settings error:', error);
+    throw error;
+  }
+}
+
 async function saveSmsSettings(settings) {
   const token = requireToken();
   try {
@@ -1093,7 +1230,9 @@ async function fetchUsers() {
       const errorText = await response.text();
       throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
-    return await response.json();
+    const data = await response.json();
+    // API returns {users: [...], total, limit, offset}, extract just the array
+    return data.users || [];
   } catch (error) {
     logError('Fetch users error:', error);
     throw error;
@@ -1585,6 +1724,61 @@ async function updateWorkOrderStatus(workOrderId, status) {
   }
 }
 
+/**
+ * Delay a work order with optional date range
+ * @param {number} workOrderId - The work order ID
+ * @param {Object} delayData - Delay configuration
+ * @param {string} delayData.delay_start_date - Start date (defaults to today)
+ * @param {string|null} delayData.delay_end_date - End date (null = indefinite)
+ * @param {string} delayData.delay_reason - Reason for the delay
+ */
+async function delayWorkOrder(workOrderId, delayData = {}) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/work-orders/${workOrderId}/delay`, {
+      method: 'POST',
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify(delayData)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    logError(`Delay work order error:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Remove delay from a work order
+ * @param {number} workOrderId - The work order ID
+ * @param {boolean} clearDelayHistory - Whether to clear the delay reason too
+ */
+async function undelayWorkOrder(workOrderId, clearDelayHistory = false) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/work-orders/${workOrderId}/undelay`, {
+      method: 'POST',
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ clear_delay_history: clearDelayHistory })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    logError(`Undelay work order error:`, error);
+    throw error;
+  }
+}
+
 // ============================================================
 // INVOICES
 // ============================================================
@@ -1755,6 +1949,519 @@ async function getInvoiceStats() {
   }
 }
 
+async function sendInvoiceEmail(invoiceId, emailData) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/email`, {
+      method: 'POST',
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify(emailData)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    logError(`Send invoice email error:`, error);
+    throw error;
+  }
+}
+
+async function sendInvoiceSMS(invoiceId, smsData) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/sms`, {
+      method: 'POST',
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify(smsData)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    logError(`Send invoice SMS error:`, error);
+    throw error;
+  }
+}
+
+async function fetchCommunicationCarriers() {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/settings/communication/carriers`, {
+      headers: withAuthHeaders(token)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Fetch carriers error:`, error);
+    throw error;
+  }
+}
+
+async function updateInvoiceLineItem(invoiceId, lineItemId, updateData) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/line-items/${lineItemId}`, {
+      method: 'PUT',
+      headers: withAuthHeaders(token),
+      body: JSON.stringify(updateData)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    logError(`Update invoice line item error:`, error);
+    throw error;
+  }
+}
+
+async function updateInvoiceLaborEntry(invoiceId, entryId, updateData) {
+  const token = requireToken();
+  try {
+    const params = new URLSearchParams();
+    if (updateData.billable_rate !== undefined) params.append('billable_rate', updateData.billable_rate);
+    if (updateData.hours_worked !== undefined) params.append('hours_worked', updateData.hours_worked);
+    if (updateData.notes !== undefined) params.append('notes', updateData.notes);
+
+    const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/labor-entries/${entryId}?${params.toString()}`, {
+      method: 'PUT',
+      headers: withAuthHeaders(token)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    logError(`Update invoice labor entry error:`, error);
+    throw error;
+  }
+}
+
+// ============================================================
+// VENDOR RETURNS (Return-to-Vendor Rack)
+// ============================================================
+
+async function fetchVendorReturns(status = null, vendorId = null, limit = 100, offset = 0) {
+  const token = requireToken();
+  try {
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    if (vendorId) params.append('vendor_id', vendorId);
+    params.append('limit', limit.toString());
+    params.append('offset', offset.toString());
+
+    const response = await fetch(`${API_BASE_URL}/vendor-returns?${params.toString()}`, {
+      headers: withAuthHeaders(token)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError('Fetch vendor returns error:', error);
+    throw error;
+  }
+}
+
+async function fetchVendorReturnsSummary() {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor-returns/summary`, {
+      headers: withAuthHeaders(token)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError('Fetch vendor returns summary error:', error);
+    throw error;
+  }
+}
+
+async function fetchVendorReturnReport(vendorId) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor-returns/report/${vendorId}`, {
+      headers: withAuthHeaders(token)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError('Fetch vendor return report error:', error);
+    throw error;
+  }
+}
+
+async function fetchVendorReturn(id) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor-returns/${id}`, {
+      headers: withAuthHeaders(token)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError('Fetch vendor return error:', error);
+    throw error;
+  }
+}
+
+async function createVendorReturn(returnData) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor-returns`, {
+      method: 'POST',
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify(returnData)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError('Create vendor return error:', error);
+    throw error;
+  }
+}
+
+async function updateVendorReturn(id, updateData) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor-returns/${id}`, {
+      method: 'PATCH',
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify(updateData)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError('Update vendor return error:', error);
+    throw error;
+  }
+}
+
+async function deleteVendorReturn(id) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor-returns/${id}`, {
+      method: 'DELETE',
+      headers: withAuthHeaders(token)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError('Delete vendor return error:', error);
+    throw error;
+  }
+}
+
+// ============================================================
+// VAN INVENTORY MANAGEMENT
+// ============================================================
+
+async function fetchVans(activeOnly = true) {
+  const token = requireToken();
+  try {
+    const params = new URLSearchParams();
+    if (activeOnly) params.append('active_only', 'true');
+    const response = await fetch(`${API_BASE_URL}/vans?${params.toString()}`, {
+      headers: withAuthHeaders(token)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    const data = await response.json();
+    // API returns {vans: [...], count: n}, extract just the array
+    return data.vans || [];
+  } catch (error) {
+    logError(`Fetch vans error:`, error);
+    throw error;
+  }
+}
+
+async function fetchVan(vanId) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vans/${vanId}`, {
+      headers: withAuthHeaders(token)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Fetch van error:`, error);
+    throw error;
+  }
+}
+
+async function createVan(vanData) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vans`, {
+      method: 'POST',
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify(vanData)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Create van error:`, error);
+    throw error;
+  }
+}
+
+async function updateVan(vanId, vanData) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vans/${vanId}`, {
+      method: 'PATCH',
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify(vanData)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Update van error:`, error);
+    throw error;
+  }
+}
+
+async function deleteVan(vanId) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vans/${vanId}`, {
+      method: 'DELETE',
+      headers: withAuthHeaders(token)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Delete van error:`, error);
+    throw error;
+  }
+}
+
+async function fetchVanInventory(vanId, lowStockOnly = false) {
+  const token = requireToken();
+  try {
+    const endpoint = lowStockOnly
+      ? `${API_BASE_URL}/vans/${vanId}/inventory/low-stock`
+      : `${API_BASE_URL}/vans/${vanId}/inventory`;
+    const response = await fetch(endpoint, {
+      headers: withAuthHeaders(token)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    const data = await response.json();
+    // API returns { van: {...}, items: [...], summary: {...} }, extract just items array
+    return data.items || [];
+  } catch (error) {
+    logError(`Fetch van inventory error:`, error);
+    throw error;
+  }
+}
+
+async function transferToVan(vanId, inventoryId, quantity, notes = null) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vans/${vanId}/transfer-from-warehouse`, {
+      method: 'POST',
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ inventory_id: inventoryId, quantity, notes })
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Transfer to van error:`, error);
+    throw error;
+  }
+}
+
+async function transferFromVan(vanId, inventoryId, quantity, notes = null) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vans/${vanId}/transfer-to-warehouse`, {
+      method: 'POST',
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ inventory_id: inventoryId, quantity, notes })
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Transfer from van error:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Got It - Add field-acquired inventory directly to van
+ * This is for items acquired in the field (bought at store, etc.)
+ * @param {number} vanId - Van ID
+ * @param {number} inventoryId - Inventory item ID
+ * @param {number} quantity - Quantity acquired
+ * @param {number|null} costPerUnit - Optional cost per unit if known
+ * @param {string|null} notes - Optional notes
+ */
+async function gotItToVan(vanId, inventoryId, quantity, costPerUnit = null, notes = null) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vans/${vanId}/got-it`, {
+      method: 'POST',
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        inventory_id: inventoryId,
+        quantity,
+        cost_per_unit: costPerUnit,
+        notes
+      })
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Got It to van error:`, error);
+    throw error;
+  }
+}
+
+async function bulkTransferToVan(vanId, items, notes = null) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vans/${vanId}/bulk-transfer-from-warehouse`, {
+      method: 'POST',
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ items, notes })
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Bulk transfer to van error:`, error);
+    throw error;
+  }
+}
+
+async function transferBetweenVans(fromVanId, toVanId, inventoryId, quantity, notes = null) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/vans/transfer-between`, {
+      method: 'POST',
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        from_van_id: fromVanId,
+        to_van_id: toVanId,
+        inventory_id: inventoryId,
+        quantity,
+        notes
+      })
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Transfer between vans error:`, error);
+    throw error;
+  }
+}
+
+async function getUserDefaultVan() {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/user/default-van`, {
+      headers: withAuthHeaders(token)
+    });
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null; // No default van set
+      }
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Get user default van error:`, error);
+    throw error;
+  }
+}
+
+async function setUserDefaultVan(vanId) {
+  const token = requireToken();
+  try {
+    const response = await fetch(`${API_BASE_URL}/user/default-van`, {
+      method: 'POST',
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ van_id: vanId })
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    logError(`Set user default van error:`, error);
+    throw error;
+  }
+}
+
 export {
   login,
   fetchInventory,
@@ -1777,7 +2484,10 @@ export {
   updateWorkOrder,
   allocateMaterials,
   deallocateMaterials,
+  reconcileMaterials,
+  markFieldAcquisition,
   addMaterialToWorkOrder,
+  addCustomMaterialToWorkOrder,
   removeMaterialFromWorkOrder,
   fetchCustomers,
   createCustomer,
@@ -1789,6 +2499,7 @@ export {
   fetchWorkOrderPhotos,
   uploadWorkOrderPhoto,
   deleteWorkOrderPhoto,
+  deleteWorkOrder,
   getPhotoUrl,
   fetchAuthenticatedPhoto,
   getCurrentUser,
@@ -1800,6 +2511,8 @@ export {
   getCommunicationSettings,
   saveEmailSettings,
   testEmailSettings,
+  saveSendGridSettings,
+  testSendGridSettings,
   saveSmsSettings,
   testSmsSettings,
   saveSmsGatewaySettings,
@@ -1830,6 +2543,8 @@ export {
   getProfitLossComparison,
   getJobProfitabilityDetail,
   updateWorkOrderStatus,
+  delayWorkOrder,
+  undelayWorkOrder,
   // Invoices
   fetchInvoices,
   fetchInvoice,
@@ -1839,6 +2554,11 @@ export {
   recordInvoicePayment,
   markInvoiceSent,
   getInvoiceStats,
+  sendInvoiceEmail,
+  sendInvoiceSMS,
+  fetchCommunicationCarriers,
+  updateInvoiceLineItem,
+  updateInvoiceLaborEntry,
   // Work Order Tasks
   fetchWorkOrderTasks,
   createWorkOrderTask,
@@ -1880,6 +2600,28 @@ export {
   SessionExpiredError,
   clearAuthState,
   redirectToLogin,
+  // Van Inventory Management
+  fetchVans,
+  fetchVan,
+  createVan,
+  updateVan,
+  deleteVan,
+  fetchVanInventory,
+  transferToVan,
+  transferFromVan,
+  gotItToVan,
+  bulkTransferToVan,
+  transferBetweenVans,
+  getUserDefaultVan,
+  setUserDefaultVan,
+  // Vendor Returns (Return-to-Vendor Rack)
+  fetchVendorReturns,
+  fetchVendorReturnsSummary,
+  fetchVendorReturnReport,
+  fetchVendorReturn,
+  createVendorReturn,
+  updateVendorReturn,
+  deleteVendorReturn,
 };
 
 // ============================================================
@@ -2173,7 +2915,7 @@ async function setEmployeeAvailability(username, availabilityData) {
   try {
     const response = await fetch(`${API_BASE_URL}/employees/${username}/availability`, {
       method: 'POST',
-      headers: withAuthHeaders(token),
+      headers: withAuthHeaders(token, { 'Content-Type': 'application/json' }),
       body: JSON.stringify(availabilityData)
     });
     if (!response.ok) {

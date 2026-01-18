@@ -4,9 +4,9 @@
   left: 0;
   right: 0;
   z-index: 1000;
-  background: white;
+  background: var(--bg-paper, white);
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid var(--border-color, #e9ecef);
 }
 
 .bottom-nav {
@@ -27,14 +27,14 @@
   cursor: pointer;
   padding: 8px 12px;
   min-width: 60px;
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
   transition: all 0.2s ease;
   border-radius: 8px;
 }
 
 .nav-item:hover {
-  background: #f8f9fa;
-  color: #1e2656;
+  background: var(--bg-hover, #f8f9fa);
+  color: var(--text-primary, #1e2656);
 }
 
 .nav-item:active {
@@ -42,8 +42,8 @@
 }
 
 .nav-item.active {
-  color: #1e2656;
-  background: linear-gradient(135deg, #e8eaf6 0%, #f3e5f5 100%);
+  color: var(--text-primary, #1e2656);
+  background: var(--bg-active, linear-gradient(135deg, #e8eaf6 0%, #f3e5f5 100%));
   font-weight: 600;
 }
 

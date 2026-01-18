@@ -29,32 +29,44 @@ function ActivityTimeline({ workOrderId, onError }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadActivities();
-  }, [workOrderId]);
+    let isMounted = true;
 
-  const loadActivities = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/work-orders/${workOrderId}/activity`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+    const loadActivities = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/work-orders/${workOrderId}/activity`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to load activity log');
+        if (!response.ok) {
+          throw new Error('Failed to load activity log');
+        }
+
+        const data = await response.json();
+        if (isMounted) {
+          setActivities(data);
+        }
+      } catch (err) {
+        logger.error('Error loading activities:', err);
+        if (isMounted) {
+          onError?.(err.message);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
+    };
 
-      const data = await response.json();
-      setActivities(data);
-    } catch (err) {
-      logger.error('Error loading activities:', err);
-      onError?.(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    loadActivities();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [workOrderId, onError]);
 
   const getActivityIcon = (activityType) => {
     const iconMap = {
@@ -123,7 +135,7 @@ function ActivityTimeline({ workOrderId, onError }) {
   return (
     <Paper elevation={3} sx={{ p: 3, mb: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <TimelineIcon sx={{ mr: 1, color: '#FF6B00' }} />
+        <TimelineIcon sx={{ mr: 1, color: 'primary.main' }} />
         <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
           Activity Timeline
         </Typography>
@@ -147,10 +159,10 @@ function ActivityTimeline({ workOrderId, onError }) {
                 <ListItemAvatar>
                   <Avatar
                     sx={{
-                      bgcolor: getActivityColor(activity.activity_type) === 'success' ? '#4CAF50' :
-                               getActivityColor(activity.activity_type) === 'error' ? '#f44336' :
-                               getActivityColor(activity.activity_type) === 'warning' ? '#ff9800' :
-                               '#FF6B00',
+                      bgcolor: getActivityColor(activity.activity_type) === 'success' ? 'success.main' :
+                               getActivityColor(activity.activity_type) === 'error' ? 'error.main' :
+                               getActivityColor(activity.activity_type) === 'warning' ? 'warning.main' :
+                               'primary.main',
                     }}
                   >
                     {getActivityIcon(activity.activity_type)}
@@ -166,7 +178,7 @@ function ActivityTimeline({ workOrderId, onError }) {
                   }
                   secondary={
                     <Box sx={{ mt: 0.5 }}>
-                      <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#FF6B00' }}>
+                      <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
                         {activity.performed_by}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">

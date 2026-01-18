@@ -5,8 +5,10 @@ import {
   Card, CardContent, CardHeader, CardActions, CircularProgress, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
   FormControl, InputLabel, Select, MenuItem, Tabs, Tab, List, ListItem,
-  ListItemText, ListItemIcon, Tooltip, RadioGroup, FormControlLabel, Radio
+  ListItemText, ListItemIcon, Tooltip, RadioGroup, FormControlLabel, Radio,
+  Snackbar
 } from '@mui/material';
+import ConfirmDialog from './common/ConfirmDialog';
 import {
   ArrowBack as BackIcon, Edit as EditIcon, Send as SendIcon,
   CheckCircle as ApproveIcon, Cancel as DeclineIcon, Print as PrintIcon,
@@ -43,6 +45,8 @@ function QuoteDetail() {
     customer_approved_by: '',
     customer_notes: ''
   });
+  const [convertDialog, setConvertDialog] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
 
   const fetchQuote = useCallback(async () => {
     setLoading(true);
@@ -126,8 +130,12 @@ function QuoteDetail() {
     }
   };
 
-  const handleConvertToWorkOrder = async () => {
-    if (!window.confirm('Convert this quote to a work order?')) return;
+  const handleConvertToWorkOrder = () => {
+    setConvertDialog(true);
+  };
+
+  const handleConfirmConvert = async () => {
+    setConvertDialog(false);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
@@ -142,8 +150,8 @@ function QuoteDetail() {
         throw new Error(data.detail || 'Failed to convert');
       }
       const data = await response.json();
-      alert(`Converted to Work Order: ${data.work_order_number}`);
-      navigate(`/jobs/${data.work_order_id}`);
+      setSnackbar({ open: true, message: `Converted to Work Order: ${data.work_order_number}`, severity: 'success' });
+      setTimeout(() => navigate(`/jobs/${data.work_order_id}`), 1500);
     } catch (err) {
       setError(err.message);
     }
@@ -213,7 +221,7 @@ function QuoteDetail() {
               variant="contained"
               startIcon={<SendIcon />}
               onClick={handleSendQuote}
-              sx={{ bgcolor: 'white', color: '#1e3a5f', '&:hover': { bgcolor: '#e0e0e0' } }}
+              sx={{ bgcolor: 'background.paper', color: '#1e3a5f', '&:hover': { bgcolor: '#e0e0e0' } }}
             >
               Send
             </Button>
@@ -244,7 +252,7 @@ function QuoteDetail() {
             variant="contained"
             startIcon={<ConvertIcon />}
             onClick={handleConvertToWorkOrder}
-            sx={{ bgcolor: 'white', color: '#1e3a5f', '&:hover': { bgcolor: '#e0e0e0' } }}
+            sx={{ bgcolor: 'background.paper', color: '#1e3a5f', '&:hover': { bgcolor: '#e0e0e0' } }}
           >
             Convert
           </Button>
@@ -604,6 +612,34 @@ function QuoteDetail() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Convert to Work Order Confirmation */}
+      <ConfirmDialog
+        open={convertDialog}
+        onClose={() => setConvertDialog(false)}
+        onConfirm={handleConfirmConvert}
+        title="Convert to Work Order"
+        message="Convert this quote to a work order? This will create a new work order with all the quote details."
+        confirmText="Convert"
+        confirmColor="primary"
+        severity="info"
+      />
+
+      {/* Notification Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
       </Box>
     </Box>
   );

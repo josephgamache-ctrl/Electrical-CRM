@@ -67,6 +67,56 @@ def get_admins_and_managers(conn) -> List[Dict[str, str]]:
         cur.close()
 
 
+def get_managers_for_worker(conn, worker_username: str) -> List[Dict[str, str]]:
+    """Get list of managers who have this worker assigned to them."""
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT u.username, u.full_name, u.email
+            FROM manager_workers mw
+            JOIN users u ON mw.manager_username = u.username
+            WHERE mw.worker_username = %s AND mw.active = true AND u.active = true
+        """, (worker_username,))
+        return [dict(row) for row in cur.fetchall()]
+    finally:
+        cur.close()
+
+
+def notify_worker_managers(
+    conn,
+    worker_username: str,
+    notification_type: str,
+    title: str,
+    message: str,
+    severity: str = 'info',
+    related_entity_type: Optional[str] = None,
+    related_entity_id: Optional[int] = None,
+    action_url: Optional[str] = None
+):
+    """
+    Send notifications to all managers who have this worker assigned.
+    Used for schedule changes, call-outs, PTO, etc.
+    """
+    managers = get_managers_for_worker(conn, worker_username)
+
+    for manager in managers:
+        try:
+            create_in_app_notification(
+                conn=conn,
+                target_username=manager['username'],
+                notification_type=notification_type,
+                title=title,
+                message=message,
+                severity=severity,
+                related_entity_type=related_entity_type,
+                related_entity_id=related_entity_id,
+                action_url=action_url
+            )
+            logger.info(f"Notified manager {manager['username']} about worker {worker_username}: {title}")
+        except Exception as e:
+            logger.error(f"Failed to notify manager {manager['username']}: {e}")
+
+
 def create_in_app_notification(
     conn,
     target_username: str,

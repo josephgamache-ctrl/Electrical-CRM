@@ -31,6 +31,7 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material';
+import ConfirmDialog from './common/ConfirmDialog';
 import {
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
@@ -54,6 +55,7 @@ import {
   ExpandLess as ExpandLessIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
+  LocalShipping as VanIcon,
 } from '@mui/icons-material';
 import AppHeader from './AppHeader';
 import {
@@ -62,14 +64,20 @@ import {
   getCommunicationSettings,
   saveEmailSettings,
   testEmailSettings,
+  saveSendGridSettings,
+  testSendGridSettings,
   saveSmsSettings,
   testSmsSettings,
   saveSmsGatewaySettings,
   testSmsGatewaySettings,
   deleteCommunicationSetting,
   getCurrentUser,
+  fetchVans,
+  getUserDefaultVan,
+  setUserDefaultVan,
 } from '../api';
 import logger from '../utils/logger';
+import { useSettings } from '../settings/SettingsContext';
 
 const DEFAULT_PAGES = [
   { value: '/home', label: 'Dashboard', icon: <DashboardIcon /> },
@@ -82,6 +90,7 @@ const DEFAULT_PAGES = [
 ];
 
 function SettingsPage() {
+  const { settings: globalSettings, updateSettings: updateGlobalSettings } = useSettings();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -89,20 +98,28 @@ function SettingsPage() {
   const [userRole, setUserRole] = useState(null);
 
   const [settings, setSettings] = useState({
-    theme: 'light',
-    default_page: '/home',
+    theme: globalSettings.theme || 'light',
+    default_page: globalSettings.default_page || '/home',
   });
+
+  // Van settings state
+  const [vans, setVans] = useState([]);
+  const [defaultVanId, setDefaultVanId] = useState(null);
+  const [savingVan, setSavingVan] = useState(false);
 
   // Communication settings state
   const [emailExpanded, setEmailExpanded] = useState(false);
   const [smsExpanded, setSmsExpanded] = useState(false);
   const [commSettings, setCommSettings] = useState({
     email: null,
+    sendgrid: null,
     sms_gateway: null,
     sms_twilio: null,
     twilio_available: false,
+    sendgrid_available: false,
     carriers: []
   });
+  const [emailProvider, setEmailProvider] = useState('sendgrid'); // 'smtp' or 'sendgrid'
   const [emailForm, setEmailForm] = useState({
     host: 'smtp.gmail.com',
     port: 587,
@@ -110,7 +127,13 @@ function SettingsPage() {
     password: '',
     use_tls: true,
     use_ssl: false,
-    from_name: 'MA Electrical',
+    from_name: 'Pem2 Services',
+    from_email: '',
+    is_active: true,
+  });
+  const [sendgridForm, setSendgridForm] = useState({
+    api_key: '',
+    from_name: 'Pem2 Services',
     from_email: '',
     is_active: true,
   });
@@ -127,14 +150,20 @@ function SettingsPage() {
   });
   const [showTwilioSettings, setShowTwilioSettings] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [showAuthToken, setShowAuthToken] = useState(false);
+  const [deleteEmailDialog, setDeleteEmailDialog] = useState(false);
+  const [deleteSmsDialog, setDeleteSmsDialog] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
+  const [savingSendgrid, setSavingSendgrid] = useState(false);
   const [savingSmsGateway, setSavingSmsGateway] = useState(false);
   const [savingSmsTwilio, setSavingSmsTwilio] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
+  const [testingSendgrid, setTestingSendgrid] = useState(false);
   const [testingSmsGateway, setTestingSmsGateway] = useState(false);
   const [testingSmsTwilio, setTestingSmsTwilio] = useState(false);
   const [testEmailDialog, setTestEmailDialog] = useState(false);
+  const [testSendgridDialog, setTestSendgridDialog] = useState(false);
   const [testSmsGatewayDialog, setTestSmsGatewayDialog] = useState(false);
   const [testSmsTwilioDialog, setTestSmsTwilioDialog] = useState(false);
   const [testEmailAddress, setTestEmailAddress] = useState('');
@@ -168,10 +197,40 @@ function SettingsPage() {
       } catch (err) {
         logger.log('Could not load user info');
       }
+
+      // Load vans and default van
+      await loadVansAndDefault();
     } catch (err) {
       logger.log('Using default settings');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadVansAndDefault = async () => {
+    try {
+      const vansData = await fetchVans(true);
+      setVans(vansData || []);
+
+      const defaultVan = await getUserDefaultVan();
+      if (defaultVan?.id) {
+        setDefaultVanId(defaultVan.id);
+      }
+    } catch (err) {
+      logger.log('Could not load van settings');
+    }
+  };
+
+  const handleDefaultVanChange = async (vanId) => {
+    setSavingVan(true);
+    try {
+      await setUserDefaultVan(vanId || null);
+      setDefaultVanId(vanId || null);
+      setSuccess('Default van updated');
+    } catch (err) {
+      setError('Failed to update default van');
+    } finally {
+      setSavingVan(false);
     }
   };
 
@@ -188,6 +247,18 @@ function SettingsPage() {
           password: '', // Don't show masked password
           is_active: data.email.is_active,
         }));
+      }
+      // SendGrid settings
+      if (data.sendgrid?.config) {
+        setSendgridForm(prev => ({
+          ...prev,
+          ...data.sendgrid.config,
+          api_key: '', // Don't show masked key
+          is_active: data.sendgrid.is_active,
+        }));
+        setEmailProvider('sendgrid');
+      } else if (data.email?.config) {
+        setEmailProvider('smtp');
       }
       // SMS Gateway settings
       if (data.sms_gateway) {
@@ -217,28 +288,17 @@ function SettingsPage() {
     try {
       setSaving(true);
       setError(null);
-      await updateUserSettings(newSettings);
+
+      // Update global settings context (this updates the theme in App.js and persists to backend)
+      updateGlobalSettings(newSettings);
+
       setSuccess('Settings saved');
-
-      if (key === 'theme') {
-        applyTheme(value);
-      }
-
       setTimeout(() => setSuccess(null), 2000);
     } catch (err) {
       setError('Failed to save settings');
       setSettings(settings);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const applyTheme = (theme) => {
-    localStorage.setItem('theme', theme);
-    if (theme === 'dark') {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    } else {
-      document.documentElement.removeAttribute('data-theme');
     }
   };
 
@@ -283,6 +343,46 @@ function SettingsPage() {
       setError('Test failed: ' + err.message);
     } finally {
       setTestingEmail(false);
+    }
+  };
+
+  // SendGrid handlers
+  const handleSaveSendgridSettings = async () => {
+    try {
+      setSavingSendgrid(true);
+      setError(null);
+      await saveSendGridSettings(sendgridForm);
+      setSuccess('SendGrid settings saved successfully');
+      await loadCommunicationSettings();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to save SendGrid settings: ' + err.message);
+    } finally {
+      setSavingSendgrid(false);
+    }
+  };
+
+  const handleTestSendgrid = async () => {
+    if (!testEmailAddress) {
+      setError('Please enter an email address');
+      return;
+    }
+    try {
+      setTestingSendgrid(true);
+      setError(null);
+      const result = await testSendGridSettings(testEmailAddress);
+      if (result.success) {
+        setSuccess(result.message);
+        setTestSendgridDialog(false);
+        await loadCommunicationSettings();
+      } else {
+        setError(result.message);
+      }
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err) {
+      setError('Test failed: ' + err.message);
+    } finally {
+      setTestingSendgrid(false);
     }
   };
 
@@ -370,8 +470,12 @@ function SettingsPage() {
     }
   };
 
-  const handleDeleteEmailSettings = async () => {
-    if (!window.confirm('Are you sure you want to delete email settings?')) return;
+  const handleDeleteEmailSettings = () => {
+    setDeleteEmailDialog(true);
+  };
+
+  const handleConfirmDeleteEmail = async () => {
+    setDeleteEmailDialog(false);
     try {
       await deleteCommunicationSetting('email');
       setSuccess('Email settings deleted');
@@ -382,7 +486,7 @@ function SettingsPage() {
         password: '',
         use_tls: true,
         use_ssl: false,
-        from_name: 'MA Electrical',
+        from_name: 'Pem2 Services',
         from_email: '',
         is_active: true,
       });
@@ -393,8 +497,12 @@ function SettingsPage() {
     }
   };
 
-  const handleDeleteSmsSettings = async () => {
-    if (!window.confirm('Are you sure you want to delete all SMS settings (Gateway and Twilio)?')) return;
+  const handleDeleteSmsSettings = () => {
+    setDeleteSmsDialog(true);
+  };
+
+  const handleConfirmDeleteSms = async () => {
+    setDeleteSmsDialog(false);
     try {
       await deleteCommunicationSetting('sms');
       setSuccess('SMS settings deleted');
@@ -446,7 +554,7 @@ function SettingsPage() {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <AppHeader title="Settings" />
 
-      <Box sx={{ flex: 1, overflow: 'auto', p: 3, bgcolor: 'grey.100' }}>
+      <Box sx={{ flex: 1, overflow: 'auto', p: 3, bgcolor: 'background.default' }}>
         <Box sx={{ maxWidth: 800, mx: 'auto' }}>
           {/* Alerts */}
           {error && (
@@ -462,7 +570,7 @@ function SettingsPage() {
 
           {/* Appearance Settings */}
           <Paper sx={{ mb: 3 }}>
-            <Box sx={{ p: 2, bgcolor: 'primary.main', color: 'white' }}>
+            <Box sx={{ p: 2, bgcolor: 'secondary.dark', color: 'white' }}>
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <PaletteIcon /> Appearance
               </Typography>
@@ -490,7 +598,7 @@ function SettingsPage() {
 
           {/* Navigation Settings */}
           <Paper sx={{ mb: 3 }}>
-            <Box sx={{ p: 2, bgcolor: 'primary.main', color: 'white' }}>
+            <Box sx={{ p: 2, bgcolor: 'secondary.dark', color: 'white' }}>
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <HomeIcon /> Navigation
               </Typography>
@@ -520,6 +628,43 @@ function SettingsPage() {
             </Box>
           </Paper>
 
+          {/* Work Preferences - Default Van */}
+          {vans.length > 0 && (
+            <Paper sx={{ mb: 3 }}>
+              <Box sx={{ p: 2, bgcolor: 'secondary.dark', color: 'white' }}>
+                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <VanIcon /> Work Preferences
+                </Typography>
+              </Box>
+              <Box sx={{ p: 3 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Default Van</InputLabel>
+                  <Select
+                    value={defaultVanId || ''}
+                    label="Default Van"
+                    onChange={(e) => handleDefaultVanChange(e.target.value)}
+                    disabled={savingVan}
+                  >
+                    <MenuItem value="">
+                      <em>No default van</em>
+                    </MenuItem>
+                    {vans.map((van) => (
+                      <MenuItem key={van.id} value={van.id}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <VanIcon fontSize="small" />
+                          {van.van_number} {van.name ? `- ${van.name}` : ''}
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Your default van will be pre-selected when loading materials from the scanner or work orders.
+                </Typography>
+              </Box>
+            </Paper>
+          )}
+
           {/* Communication Settings - Admin/Manager Only */}
           {isAdminOrManager && (
             <>
@@ -528,7 +673,7 @@ function SettingsPage() {
                 <Box
                   sx={{
                     p: 2,
-                    bgcolor: 'primary.main',
+                    bgcolor: 'secondary.dark',
                     color: 'white',
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -538,165 +683,293 @@ function SettingsPage() {
                   onClick={() => setEmailExpanded(!emailExpanded)}
                 >
                   <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <EmailIcon /> Email Settings (SMTP)
+                    <EmailIcon /> Email Settings
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {getStatusChip(commSettings.email)}
+                    {getStatusChip(emailProvider === 'sendgrid' ? commSettings.sendgrid : commSettings.email)}
                     {emailExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                   </Box>
                 </Box>
                 <Collapse in={emailExpanded}>
                   <Box sx={{ p: 3 }}>
+                    {/* Provider Selector */}
                     <Grid container spacing={2}>
-                      <Grid item xs={12} sm={8}>
-                        <TextField
-                          fullWidth
-                          label="SMTP Server"
-                          value={emailForm.host}
-                          onChange={(e) => setEmailForm({ ...emailForm, host: e.target.value })}
-                          placeholder="smtp.gmail.com"
-                          size="small"
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <TextField
-                          fullWidth
-                          label="Port"
-                          type="number"
-                          value={emailForm.port}
-                          onChange={(e) => setEmailForm({ ...emailForm, port: parseInt(e.target.value) || 587 })}
-                          size="small"
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          fullWidth
-                          label="Username (Email)"
-                          value={emailForm.username}
-                          onChange={(e) => setEmailForm({ ...emailForm, username: e.target.value })}
-                          placeholder="your-email@gmail.com"
-                          size="small"
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          fullWidth
-                          label="Password / App Password"
-                          type={showPassword ? 'text' : 'password'}
-                          value={emailForm.password}
-                          onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })}
-                          placeholder={commSettings.email ? '(unchanged)' : 'Enter password'}
-                          size="small"
-                          InputProps={{
-                            endAdornment: (
-                              <InputAdornment position="end">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => setShowPassword(!showPassword)}
-                                >
-                                  {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                                </IconButton>
-                              </InputAdornment>
-                            ),
-                          }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          fullWidth
-                          label="From Name"
-                          value={emailForm.from_name}
-                          onChange={(e) => setEmailForm({ ...emailForm, from_name: e.target.value })}
-                          placeholder="MA Electrical"
-                          size="small"
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          fullWidth
-                          label="From Email"
-                          value={emailForm.from_email}
-                          onChange={(e) => setEmailForm({ ...emailForm, from_email: e.target.value })}
-                          placeholder="quotes@maelectrical.com"
-                          size="small"
-                        />
-                      </Grid>
                       <Grid item xs={12}>
-                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                checked={emailForm.use_tls}
-                                onChange={(e) => setEmailForm({ ...emailForm, use_tls: e.target.checked, use_ssl: false })}
-                              />
-                            }
-                            label="Use TLS (Port 587)"
-                          />
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                checked={emailForm.use_ssl}
-                                onChange={(e) => setEmailForm({ ...emailForm, use_ssl: e.target.checked, use_tls: false })}
-                              />
-                            }
-                            label="Use SSL (Port 465)"
-                          />
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                checked={emailForm.is_active}
-                                onChange={(e) => setEmailForm({ ...emailForm, is_active: e.target.checked })}
-                              />
-                            }
-                            label="Enable Email Sending"
-                          />
-                        </Box>
-                      </Grid>
-                      {commSettings.email?.test_message && (
-                        <Grid item xs={12}>
-                          <Alert severity={commSettings.email.test_status === 'success' ? 'success' : 'error'}>
-                            Last test: {commSettings.email.test_message}
-                            {commSettings.email.last_tested_at && (
-                              <Typography variant="caption" display="block">
-                                {new Date(commSettings.email.last_tested_at).toLocaleString()}
-                              </Typography>
-                            )}
-                          </Alert>
-                        </Grid>
-                      )}
-                      <Grid item xs={12}>
-                        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-                          {commSettings.email && (
-                            <Button
-                              color="error"
-                              startIcon={<DeleteIcon />}
-                              onClick={handleDeleteEmailSettings}
-                            >
-                              Delete
-                            </Button>
-                          )}
-                          <Button
-                            variant="outlined"
-                            startIcon={<SendIcon />}
-                            onClick={() => setTestEmailDialog(true)}
-                            disabled={!commSettings.email}
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Email Provider</InputLabel>
+                          <Select
+                            value={emailProvider}
+                            label="Email Provider"
+                            onChange={(e) => setEmailProvider(e.target.value)}
                           >
-                            Send Test
-                          </Button>
-                          <Button
-                            variant="contained"
-                            onClick={handleSaveEmailSettings}
-                            disabled={savingEmail}
-                            startIcon={savingEmail ? <CircularProgress size={20} /> : null}
-                          >
-                            {savingEmail ? 'Saving...' : 'Save Email Settings'}
-                          </Button>
-                        </Box>
+                            <MenuItem value="sendgrid">
+                              SendGrid (Recommended - Works on all servers)
+                            </MenuItem>
+                            <MenuItem value="smtp">
+                              SMTP (Gmail/Other - May be blocked on some servers)
+                            </MenuItem>
+                          </Select>
+                        </FormControl>
                       </Grid>
                     </Grid>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                      For Gmail, use an App Password (not your regular password). Go to Google Account &gt; Security &gt; 2-Step Verification &gt; App passwords.
-                    </Typography>
+
+                    {/* SendGrid Settings */}
+                    {emailProvider === 'sendgrid' && (
+                      <Box sx={{ mt: 2 }}>
+                        <Alert severity="info" sx={{ mb: 2 }}>
+                          SendGrid uses HTTP API instead of SMTP ports, so it works on servers where outbound email ports are blocked.
+                          Free tier allows 100 emails/day. <a href="https://sendgrid.com/free/" target="_blank" rel="noopener noreferrer">Get a free API key</a>
+                        </Alert>
+                        <Grid container spacing={2}>
+                          <Grid item xs={12}>
+                            <TextField
+                              fullWidth
+                              label="SendGrid API Key"
+                              type={showApiKey ? 'text' : 'password'}
+                              value={sendgridForm.api_key}
+                              onChange={(e) => setSendgridForm({ ...sendgridForm, api_key: e.target.value })}
+                              placeholder={commSettings.sendgrid ? '(unchanged)' : 'SG.xxxxxxxxx...'}
+                              size="small"
+                              InputProps={{
+                                endAdornment: (
+                                  <InputAdornment position="end">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => setShowApiKey(!showApiKey)}
+                                    >
+                                      {showApiKey ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                    </IconButton>
+                                  </InputAdornment>
+                                ),
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              fullWidth
+                              label="From Name"
+                              value={sendgridForm.from_name}
+                              onChange={(e) => setSendgridForm({ ...sendgridForm, from_name: e.target.value })}
+                              placeholder="Pem2 Services"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              fullWidth
+                              label="From Email (must be verified in SendGrid)"
+                              value={sendgridForm.from_email}
+                              onChange={(e) => setSendgridForm({ ...sendgridForm, from_email: e.target.value })}
+                              placeholder="quotes@maelectrical.com"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12}>
+                            <FormControlLabel
+                              control={
+                                <Switch
+                                  checked={sendgridForm.is_active}
+                                  onChange={(e) => setSendgridForm({ ...sendgridForm, is_active: e.target.checked })}
+                                />
+                              }
+                              label="Enable Email Sending"
+                            />
+                          </Grid>
+                          {commSettings.sendgrid?.test_message && (
+                            <Grid item xs={12}>
+                              <Alert severity={commSettings.sendgrid.test_status === 'success' ? 'success' : 'error'}>
+                                Last test: {commSettings.sendgrid.test_message}
+                                {commSettings.sendgrid.last_tested_at && (
+                                  <Typography variant="caption" display="block">
+                                    {new Date(commSettings.sendgrid.last_tested_at).toLocaleString()}
+                                  </Typography>
+                                )}
+                              </Alert>
+                            </Grid>
+                          )}
+                          <Grid item xs={12}>
+                            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                              <Button
+                                variant="outlined"
+                                startIcon={<SendIcon />}
+                                onClick={() => setTestSendgridDialog(true)}
+                                disabled={!commSettings.sendgrid}
+                              >
+                                Send Test
+                              </Button>
+                              <Button
+                                variant="contained"
+                                onClick={handleSaveSendgridSettings}
+                                disabled={savingSendgrid}
+                                startIcon={savingSendgrid ? <CircularProgress size={20} /> : null}
+                              >
+                                {savingSendgrid ? 'Saving...' : 'Save SendGrid Settings'}
+                              </Button>
+                            </Box>
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    )}
+
+                    {/* SMTP Settings */}
+                    {emailProvider === 'smtp' && (
+                      <Box sx={{ mt: 2 }}>
+                        <Alert severity="warning" sx={{ mb: 2 }}>
+                          Note: SMTP may not work on some cloud servers (like DigitalOcean) that block outbound email ports.
+                          If emails fail to send, try SendGrid instead.
+                        </Alert>
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} sm={8}>
+                            <TextField
+                              fullWidth
+                              label="SMTP Server"
+                              value={emailForm.host}
+                              onChange={(e) => setEmailForm({ ...emailForm, host: e.target.value })}
+                              placeholder="smtp.gmail.com"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={4}>
+                            <TextField
+                              fullWidth
+                              label="Port"
+                              type="number"
+                              value={emailForm.port}
+                              onChange={(e) => setEmailForm({ ...emailForm, port: parseInt(e.target.value) || 587 })}
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              fullWidth
+                              label="Username (Email)"
+                              value={emailForm.username}
+                              onChange={(e) => setEmailForm({ ...emailForm, username: e.target.value })}
+                              placeholder="your-email@gmail.com"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              fullWidth
+                              label="Password / App Password"
+                              type={showPassword ? 'text' : 'password'}
+                              value={emailForm.password}
+                              onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })}
+                              placeholder={commSettings.email ? '(unchanged)' : 'Enter password'}
+                              size="small"
+                              InputProps={{
+                                endAdornment: (
+                                  <InputAdornment position="end">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => setShowPassword(!showPassword)}
+                                    >
+                                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                    </IconButton>
+                                  </InputAdornment>
+                                ),
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              fullWidth
+                              label="From Name"
+                              value={emailForm.from_name}
+                              onChange={(e) => setEmailForm({ ...emailForm, from_name: e.target.value })}
+                              placeholder="Pem2 Services"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              fullWidth
+                              label="From Email"
+                              value={emailForm.from_email}
+                              onChange={(e) => setEmailForm({ ...emailForm, from_email: e.target.value })}
+                              placeholder="quotes@maelectrical.com"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12}>
+                            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={emailForm.use_tls}
+                                    onChange={(e) => setEmailForm({ ...emailForm, use_tls: e.target.checked, use_ssl: false })}
+                                  />
+                                }
+                                label="Use TLS (Port 587)"
+                              />
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={emailForm.use_ssl}
+                                    onChange={(e) => setEmailForm({ ...emailForm, use_ssl: e.target.checked, use_tls: false })}
+                                  />
+                                }
+                                label="Use SSL (Port 465)"
+                              />
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={emailForm.is_active}
+                                    onChange={(e) => setEmailForm({ ...emailForm, is_active: e.target.checked })}
+                                  />
+                                }
+                                label="Enable Email Sending"
+                              />
+                            </Box>
+                          </Grid>
+                          {commSettings.email?.test_message && (
+                            <Grid item xs={12}>
+                              <Alert severity={commSettings.email.test_status === 'success' ? 'success' : 'error'}>
+                                Last test: {commSettings.email.test_message}
+                                {commSettings.email.last_tested_at && (
+                                  <Typography variant="caption" display="block">
+                                    {new Date(commSettings.email.last_tested_at).toLocaleString()}
+                                  </Typography>
+                                )}
+                              </Alert>
+                            </Grid>
+                          )}
+                          <Grid item xs={12}>
+                            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                              {commSettings.email && (
+                                <Button
+                                  color="error"
+                                  startIcon={<DeleteIcon />}
+                                  onClick={handleDeleteEmailSettings}
+                                >
+                                  Delete
+                                </Button>
+                              )}
+                              <Button
+                                variant="outlined"
+                                startIcon={<SendIcon />}
+                                onClick={() => setTestEmailDialog(true)}
+                                disabled={!commSettings.email}
+                              >
+                                Send Test
+                              </Button>
+                              <Button
+                                variant="contained"
+                                onClick={handleSaveEmailSettings}
+                                disabled={savingEmail}
+                                startIcon={savingEmail ? <CircularProgress size={20} /> : null}
+                              >
+                                {savingEmail ? 'Saving...' : 'Save Email Settings'}
+                              </Button>
+                            </Box>
+                          </Grid>
+                        </Grid>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                          For Gmail, use an App Password (not your regular password). Go to Google Account &gt; Security &gt; 2-Step Verification &gt; App passwords.
+                        </Typography>
+                      </Box>
+                    )}
                   </Box>
                 </Collapse>
               </Paper>
@@ -706,7 +979,7 @@ function SettingsPage() {
                 <Box
                   sx={{
                     p: 2,
-                    bgcolor: 'primary.main',
+                    bgcolor: 'secondary.dark',
                     color: 'white',
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -940,9 +1213,9 @@ function SettingsPage() {
         </Box>
       </Box>
 
-      {/* Test Email Dialog */}
+      {/* Test Email Dialog (SMTP) */}
       <Dialog open={testEmailDialog} onClose={() => setTestEmailDialog(false)}>
-        <DialogTitle>Send Test Email</DialogTitle>
+        <DialogTitle>Send Test Email (SMTP)</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
@@ -963,6 +1236,33 @@ function SettingsPage() {
             startIcon={testingEmail ? <CircularProgress size={20} /> : <SendIcon />}
           >
             {testingEmail ? 'Sending...' : 'Send Test'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Test SendGrid Email Dialog */}
+      <Dialog open={testSendgridDialog} onClose={() => setTestSendgridDialog(false)}>
+        <DialogTitle>Send Test Email (SendGrid)</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Send test email to"
+            value={testEmailAddress}
+            onChange={(e) => setTestEmailAddress(e.target.value)}
+            placeholder="your-email@example.com"
+            sx={{ mt: 2 }}
+            type="email"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTestSendgridDialog(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleTestSendgrid}
+            disabled={testingSendgrid}
+            startIcon={testingSendgrid ? <CircularProgress size={20} /> : <SendIcon />}
+          >
+            {testingSendgrid ? 'Sending...' : 'Send Test'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1037,6 +1337,30 @@ function SettingsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Delete Email Settings Confirmation */}
+      <ConfirmDialog
+        open={deleteEmailDialog}
+        onClose={() => setDeleteEmailDialog(false)}
+        onConfirm={handleConfirmDeleteEmail}
+        title="Delete Email Settings"
+        message="Are you sure you want to delete email settings? This will remove all configured email credentials."
+        confirmText="Delete"
+        confirmColor="error"
+        severity="warning"
+      />
+
+      {/* Delete SMS Settings Confirmation */}
+      <ConfirmDialog
+        open={deleteSmsDialog}
+        onClose={() => setDeleteSmsDialog(false)}
+        onConfirm={handleConfirmDeleteSms}
+        title="Delete SMS Settings"
+        message="Are you sure you want to delete all SMS settings (Gateway and Twilio)? This will remove all configured SMS credentials."
+        confirmText="Delete"
+        confirmColor="error"
+        severity="warning"
+      />
     </Box>
   );
 }

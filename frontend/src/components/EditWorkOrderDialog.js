@@ -11,7 +11,8 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import { updateWorkOrder, updateWorkOrderStatus, API_BASE_URL } from '../api';
+import { updateWorkOrder, undelayWorkOrder, API_BASE_URL } from '../api';
+import DelayJobDialog from './DelayJobDialog';
 import logger from '../utils/logger';
 function EditWorkOrderDialog({ open, onClose, onUpdated, workOrder }) {
   const [loading, setLoading] = useState(false);
@@ -19,10 +20,13 @@ function EditWorkOrderDialog({ open, onClose, onUpdated, workOrder }) {
   const [successMessage, setSuccessMessage] = useState(null);
   const [formData, setFormData] = useState({});
   const [employees, setEmployees] = useState([]);
+  const [managers, setManagers] = useState([]);
+  const [delayDialogOpen, setDelayDialogOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
       loadEmployees();
+      loadManagers();
     }
   }, [open]);
 
@@ -45,6 +49,21 @@ function EditWorkOrderDialog({ open, onClose, onUpdated, workOrder }) {
     }
   };
 
+  const loadManagers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/work-orders/managers`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setManagers(data);
+      }
+    } catch (err) {
+      logger.error('Error loading managers:', err);
+    }
+  };
+
   useEffect(() => {
     if (open && workOrder) {
       // Initialize form with work order data
@@ -56,6 +75,7 @@ function EditWorkOrderDialog({ open, onClose, onUpdated, workOrder }) {
         scheduled_start_time: workOrder.scheduled_start_time || '',
         estimated_duration_hours: workOrder.estimated_duration_hours || 0,
         assigned_to: workOrder.assigned_to || '',
+        assigned_manager: workOrder.assigned_manager || '',
         status: workOrder.status || 'pending',
         priority: workOrder.priority || 'normal',
         quoted_labor_hours: workOrder.quoted_labor_hours || 0,
@@ -99,35 +119,39 @@ function EditWorkOrderDialog({ open, onClose, onUpdated, workOrder }) {
         quoted_subtotal: laborCost + (workOrder.quoted_material_cost || 0),
       };
 
-      // Check if status changed to 'delayed' - use dedicated status endpoint
+      // Check if status changed to 'delayed' - open delay dialog instead
       const statusChanged = formData.status !== workOrder.status;
       const isDelayed = formData.status === 'delayed';
+      const wasDelayed = workOrder.status === 'delayed';
 
       if (statusChanged && isDelayed) {
-        // First update status using dedicated endpoint (clears schedules)
-        const statusResult = await updateWorkOrderStatus(workOrder.id, 'delayed');
-
-        // Update other fields if there are changes
+        // Don't update status directly - open the delay dialog
+        // First save other changes if any
         const otherData = { ...updateData };
-        delete otherData.status; // Status already updated
+        delete otherData.status; // Don't update status yet
         await updateWorkOrder(workOrder.id, otherData);
 
-        // Show message about removed employees
-        if (statusResult.employees_removed && statusResult.employees_removed.length > 0) {
-          const employeeNames = statusResult.employees_removed.map(e => e.full_name).join(', ');
-          const message = `Job delayed. Removed ${statusResult.employees_removed.length} employee(s) from schedule: ${employeeNames}. ${statusResult.schedule_dates_removed} day(s) cleared. Please reassign these employees to other work.`;
-          setSuccessMessage(message);
-          // Keep dialog open briefly to show the message
-          setTimeout(() => {
-            onUpdated();
-            handleClose();
-          }, 4000);
-          return;
-        }
-      } else {
-        // Normal update
-        await updateWorkOrder(workOrder.id, updateData);
+        setLoading(false);
+        setDelayDialogOpen(true);
+        return;
       }
+
+      // Check if status changed FROM delayed - call undelay endpoint
+      if (statusChanged && wasDelayed && !isDelayed) {
+        // Undelay the job first
+        await undelayWorkOrder(workOrder.id, false);
+        // Then update with new status and other fields
+        await updateWorkOrder(workOrder.id, updateData);
+        setSuccessMessage('Job delay removed and status updated.');
+        setTimeout(() => {
+          onUpdated();
+          handleClose();
+        }, 2000);
+        return;
+      }
+
+      // Normal update
+      await updateWorkOrder(workOrder.id, updateData);
 
       onUpdated();
       handleClose();
@@ -139,9 +163,31 @@ function EditWorkOrderDialog({ open, onClose, onUpdated, workOrder }) {
     }
   };
 
+  // Handle delay dialog result
+  const handleDelayResult = (result) => {
+    const message = result.message || 'Job delayed successfully';
+    let detailMessage = message;
+
+    if (result.crew_removed > 0) {
+      detailMessage += ` Removed ${result.crew_removed} crew assignment(s).`;
+    }
+    if (result.delay_type === 'indefinite') {
+      detailMessage += ' Job will remain delayed until manually reactivated.';
+    } else if (result.delay_end_date) {
+      detailMessage += ` Job will auto-resume on ${new Date(result.delay_end_date + 'T00:00:00').toLocaleDateString()}.`;
+    }
+
+    setSuccessMessage(detailMessage);
+    setTimeout(() => {
+      onUpdated();
+      handleClose();
+    }, 3000);
+  };
+
   const handleClose = () => {
     setError(null);
     setSuccessMessage(null);
+    setDelayDialogOpen(false);
     onClose();
   };
 
@@ -288,6 +334,25 @@ function EditWorkOrderDialog({ open, onClose, onUpdated, workOrder }) {
 
           <Grid item xs={12} sm={4}>
             <TextField
+              select
+              fullWidth
+              label="Assign to Manager"
+              value={formData.assigned_manager}
+              onChange={(e) => handleChange('assigned_manager', e.target.value)}
+            >
+              <MenuItem value="">
+                <em>Unassigned</em>
+              </MenuItem>
+              {managers.map((mgr) => (
+                <MenuItem key={mgr.username} value={mgr.username}>
+                  {mgr.full_name || mgr.username}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+
+          <Grid item xs={12} sm={4}>
+            <TextField
               fullWidth
               type="number"
               label="Labor Hours"
@@ -363,6 +428,14 @@ function EditWorkOrderDialog({ open, onClose, onUpdated, workOrder }) {
           {loading ? <CircularProgress size={24} /> : 'Save Changes'}
         </Button>
       </DialogActions>
+
+      {/* Delay Job Dialog */}
+      <DelayJobDialog
+        open={delayDialogOpen}
+        onClose={() => setDelayDialogOpen(false)}
+        onDelayed={handleDelayResult}
+        workOrder={workOrder}
+      />
     </Dialog>
   );
 }

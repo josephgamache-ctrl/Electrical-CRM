@@ -41,6 +41,7 @@ import {
   getWorkers,
   getManagerWorkers,
   bulkAssignWorkersToManager,
+  removeWorkerFromManager,
 } from '../../api';
 import AppHeader from '../AppHeader';
 
@@ -137,6 +138,20 @@ function ManagerWorkerAssignments() {
     }
   };
 
+  const handleRemoveWorker = async (assignmentId, workerName) => {
+    if (!window.confirm(`Remove ${workerName} from ${selectedManager.full_name}?`)) {
+      return;
+    }
+    try {
+      await removeWorkerFromManager(assignmentId);
+      setSuccess(`${workerName} removed from ${selectedManager.full_name}`);
+      await loadManagerWorkers(selectedManager.username);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to remove worker: ' + err.message);
+    }
+  };
+
   const getRoleColor = (role) => {
     switch (role) {
       case 'technician': return '#1976d2';
@@ -155,7 +170,7 @@ function ManagerWorkerAssignments() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppHeader title="Manager Assignments" />
       <Box sx={{ p: 3 }}>
 
@@ -204,7 +219,7 @@ function ManagerWorkerAssignments() {
                     }}
                   >
                     <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'primary.main' }}>
+                      <Avatar sx={{ bgcolor: 'secondary.dark' }}>
                         {manager.full_name?.charAt(0) || manager.username.charAt(0).toUpperCase()}
                       </Avatar>
                     </ListItemAvatar>
@@ -272,6 +287,15 @@ function ManagerWorkerAssignments() {
                                 </Typography>
                               )}
                             </Box>
+                            <Tooltip title="Remove from manager">
+                              <IconButton
+                                color="error"
+                                onClick={() => handleRemoveWorker(worker.id, worker.worker_name)}
+                                size="small"
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Tooltip>
                           </CardContent>
                         </Card>
                       </Grid>

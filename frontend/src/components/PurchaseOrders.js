@@ -36,6 +36,7 @@ import {
   ListItemText,
   ListItemSecondaryAction,
 } from '@mui/material';
+import ConfirmDialog from './common/ConfirmDialog';
 import {
   Add as AddIcon,
   Refresh as RefreshIcon,
@@ -65,6 +66,7 @@ function PurchaseOrders() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [currentTab, setCurrentTab] = useState(0);
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, poId: null });
 
   // Data
   const [purchaseOrders, setPurchaseOrders] = useState([]);
@@ -217,8 +219,13 @@ function PurchaseOrders() {
     }
   };
 
-  const handleDeletePO = async (poId) => {
-    if (!window.confirm('Are you sure you want to delete this draft PO?')) return;
+  const handleDeletePO = (poId) => {
+    setDeleteDialog({ open: true, poId });
+  };
+
+  const handleConfirmDeletePO = async () => {
+    const poId = deleteDialog.poId;
+    setDeleteDialog({ open: false, poId: null });
 
     const token = localStorage.getItem('token');
     try {
@@ -424,7 +431,7 @@ function PurchaseOrders() {
   const receivedCount = purchaseOrders.filter((po) => po.status === 'received').length;
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppHeader title="Purchase Orders" />
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
@@ -456,7 +463,7 @@ function PurchaseOrders() {
             </Card>
           </Grid>
           <Grid item xs={6} sm={3}>
-            <Card sx={{ bgcolor: pendingCount > 0 ? '#fff3e0' : 'inherit' }}>
+            <Card sx={{ bgcolor: pendingCount > 0 ? 'warning.light' : 'inherit' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <ScheduleIcon color="warning" />
@@ -469,7 +476,7 @@ function PurchaseOrders() {
             </Card>
           </Grid>
           <Grid item xs={6} sm={3}>
-            <Card sx={{ bgcolor: orderedCount > 0 ? '#e3f2fd' : 'inherit' }}>
+            <Card sx={{ bgcolor: orderedCount > 0 ? 'info.light' : 'inherit' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <ShippingIcon color="primary" />
@@ -482,7 +489,7 @@ function PurchaseOrders() {
             </Card>
           </Grid>
           <Grid item xs={6} sm={3}>
-            <Card sx={{ bgcolor: '#e8f5e9' }}>
+            <Card sx={{ bgcolor: 'success.light' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <CheckIcon color="success" />
@@ -909,6 +916,18 @@ function PurchaseOrders() {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Delete PO Confirmation */}
+        <ConfirmDialog
+          open={deleteDialog.open}
+          onClose={() => setDeleteDialog({ open: false, poId: null })}
+          onConfirm={handleConfirmDeletePO}
+          title="Delete Purchase Order"
+          message="Are you sure you want to delete this draft PO? This action cannot be undone."
+          confirmText="Delete"
+          confirmColor="error"
+          severity="warning"
+        />
       </Container>
     </Box>
   );

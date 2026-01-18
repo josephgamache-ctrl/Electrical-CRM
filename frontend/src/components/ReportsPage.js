@@ -12,6 +12,7 @@ import LaborTimecardsReport from './reports/LaborTimecardsReport';
 import InventoryAnalyticsReport from './reports/InventoryAnalyticsReport';
 import InventoryProjectionsReport from './reports/InventoryProjectionsReport';
 import ProjectedVsActualReport from './reports/ProjectedVsActualReport';
+import InventoryMovementReport from './reports/InventoryMovementReport';
 import './ReportsPage.css';
 
 function TabPanel({ children, value, index }) {
@@ -35,7 +36,7 @@ function ReportsPage() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppHeader title="Reports & Analytics" />
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
@@ -56,11 +57,11 @@ function ReportsPage() {
                 px: 3,
               },
               '& .Mui-selected': {
-                color: '#667eea',
+                color: 'primary.main',
                 fontWeight: 600,
               },
               '& .MuiTabs-indicator': {
-                backgroundColor: '#667eea',
+                backgroundColor: 'primary.main',
                 height: 3,
               },
             }}
@@ -83,6 +84,11 @@ function ReportsPage() {
             <Tab
               label="Inventory Analytics"
               icon={<span style={{ fontSize: '20px' }}>I</span>}
+              iconPosition="start"
+            />
+            <Tab
+              label="Inventory Movement"
+              icon={<span style={{ fontSize: '20px' }}>M</span>}
               iconPosition="start"
             />
             <Tab
@@ -110,6 +116,10 @@ function ReportsPage() {
         </TabPanel>
 
         <TabPanel value={currentTab} index={4}>
+          <InventoryMovementReport />
+        </TabPanel>
+
+        <TabPanel value={currentTab} index={5}>
           <InventoryProjectionsReport />
         </TabPanel>
       </Container>

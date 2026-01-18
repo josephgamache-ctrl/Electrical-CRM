@@ -214,7 +214,7 @@ function ProfilePage() {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <AppHeader title="Profile" />
 
-      <Box sx={{ flex: 1, overflow: 'auto', p: 3, bgcolor: 'grey.100' }}>
+      <Box sx={{ flex: 1, overflow: 'auto', p: 3, bgcolor: 'background.default' }}>
         <Box sx={{ maxWidth: 800, mx: 'auto' }}>
           {/* Alerts */}
           {error && (
@@ -237,7 +237,7 @@ function ProfilePage() {
                     width: 80,
                     height: 80,
                     borderRadius: '50%',
-                    bgcolor: 'primary.main',
+                    bgcolor: 'secondary.dark',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',

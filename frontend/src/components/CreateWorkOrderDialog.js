@@ -29,6 +29,7 @@ import logger from '../utils/logger';
 function CreateWorkOrderDialog({ open, onClose, onCreated }) {
   const [customers, setCustomers] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [materials, setMaterials] = useState([]);
@@ -46,13 +47,14 @@ function CreateWorkOrderDialog({ open, onClose, onCreated }) {
   });
   const [formData, setFormData] = useState({
     customer_id: '',
+    service_address: '',
     job_type: 'Service Call',
     job_description: '',
-    scope_of_work: '',
     scheduled_date: '',
     scheduled_start_time: '08:00',
     estimated_duration_hours: 2,
     assigned_to: '',
+    assigned_manager: '',
     priority: 'normal',
     quoted_labor_hours: 0,
     quoted_labor_rate: 95,
@@ -62,6 +64,7 @@ function CreateWorkOrderDialog({ open, onClose, onCreated }) {
     if (open) {
       loadCustomers();
       loadEmployees();
+      loadManagers();
     }
   }, [open]);
 
@@ -84,6 +87,21 @@ function CreateWorkOrderDialog({ open, onClose, onCreated }) {
     }
   };
 
+  const loadManagers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/work-orders/managers`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setManagers(data);
+      }
+    } catch (err) {
+      logger.error('Error loading managers:', err);
+    }
+  };
+
   const loadCustomers = async () => {
     try {
       const data = await fetchCustomers();
@@ -99,6 +117,18 @@ function CreateWorkOrderDialog({ open, onClose, onCreated }) {
       ...prev,
       [field]: value
     }));
+
+    // Auto-populate service address when customer is selected
+    if (field === 'customer_id' && value) {
+      const customer = customers.find(c => c.id === value);
+      if (customer) {
+        const defaultAddress = [customer.service_street, customer.service_city, customer.service_state, customer.service_zip].filter(Boolean).join(', ');
+        setFormData(prev => ({
+          ...prev,
+          service_address: defaultAddress
+        }));
+      }
+    }
 
     // Auto-calculate labor cost
     if (field === 'quoted_labor_hours' || field === 'quoted_labor_rate') {
@@ -184,7 +214,7 @@ function CreateWorkOrderDialog({ open, onClose, onCreated }) {
 
       const workOrderData = {
         ...formData,
-        service_address: `${customer.service_street}, ${customer.service_city}, ${customer.service_state} ${customer.service_zip}`,
+        service_address: formData.service_address || [customer.service_street, customer.service_city, customer.service_state, customer.service_zip].filter(Boolean).join(', '),
         quoted_labor_cost: laborCost,
         quoted_material_cost: materialCost,
         quoted_subtotal: laborCost + materialCost,
@@ -205,13 +235,14 @@ function CreateWorkOrderDialog({ open, onClose, onCreated }) {
   const handleClose = () => {
     setFormData({
       customer_id: '',
+      service_address: '',
       job_type: 'Service Call',
       job_description: '',
-      scope_of_work: '',
       scheduled_date: '',
       scheduled_start_time: '08:00',
       estimated_duration_hours: 2,
       assigned_to: '',
+      assigned_manager: '',
       priority: 'normal',
       quoted_labor_hours: 0,
       quoted_labor_rate: 95,
@@ -366,6 +397,18 @@ function CreateWorkOrderDialog({ open, onClose, onCreated }) {
             </>
           )}
 
+          {/* Service Address - editable, auto-populated from customer */}
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Service Address"
+              value={formData.service_address}
+              onChange={(e) => handleChange('service_address', e.target.value)}
+              placeholder="Enter job site address"
+              helperText="Auto-filled from customer, but you can change it for this job"
+            />
+          </Grid>
+
           <Grid item xs={12} sm={6}>
             <TextField
               select
@@ -392,17 +435,6 @@ function CreateWorkOrderDialog({ open, onClose, onCreated }) {
               required
               multiline
               rows={2}
-            />
-          </Grid>
-
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Scope of Work (Optional)"
-              value={formData.scope_of_work}
-              onChange={(e) => handleChange('scope_of_work', e.target.value)}
-              multiline
-              rows={3}
             />
           </Grid>
 
@@ -467,6 +499,25 @@ function CreateWorkOrderDialog({ open, onClose, onCreated }) {
               {employees.map((emp) => (
                 <MenuItem key={emp.username} value={emp.username}>
                   {emp.full_name || emp.username}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              select
+              fullWidth
+              label="Assign to Manager"
+              value={formData.assigned_manager}
+              onChange={(e) => handleChange('assigned_manager', e.target.value)}
+            >
+              <MenuItem value="">
+                <em>Unassigned</em>
+              </MenuItem>
+              {managers.map((mgr) => (
+                <MenuItem key={mgr.username} value={mgr.username}>
+                  {mgr.full_name || mgr.username}
                 </MenuItem>
               ))}
             </TextField>

@@ -194,6 +194,19 @@ function UserManagement() {
     }));
   };
 
+  // Password validation helper
+  const validatePassword = (password) => {
+    if (!password) return { valid: true, errors: [] }; // Empty is OK for edit mode
+    const errors = [];
+    if (password.length < 8) errors.push('At least 8 characters');
+    if (!/[0-9]/.test(password)) errors.push('At least one number');
+    if (!/[A-Z]/.test(password)) errors.push('At least one uppercase letter');
+    if (!/[a-z]/.test(password)) errors.push('At least one lowercase letter');
+    return { valid: errors.length === 0, errors };
+  };
+
+  const passwordValidation = validatePassword(formData.password);
+
   const handleSave = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -206,6 +219,12 @@ function UserManagement() {
 
       if (!editMode && !formData.password) {
         showSnackbar('Password is required for new users', 'error');
+        return;
+      }
+
+      // Validate password strength if provided
+      if (formData.password && !passwordValidation.valid) {
+        showSnackbar(`Password requirements not met: ${passwordValidation.errors.join(', ')}`, 'error');
         return;
       }
 
@@ -359,7 +378,7 @@ function UserManagement() {
   const displayUsers = activeTab === 0 ? activeUsers : inactiveUsers;
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', pb: 8 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', pb: 8 }}>
       <AppHeader title="User Management">
         <Button
           variant="outlined"
@@ -372,7 +391,7 @@ function UserManagement() {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => handleOpenDialog()}
-          sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#388e3c' } }}
+          sx={{ bgcolor: 'success.main', '&:hover': { bgcolor: 'success.dark' } }}
         >
           Add User
         </Button>
@@ -391,7 +410,7 @@ function UserManagement() {
                     </Typography>
                     <Typography variant="h4">{activeUsers.length}</Typography>
                   </Box>
-                  <WorkIcon sx={{ fontSize: 48, color: '#1976d2', opacity: 0.3 }} />
+                  <WorkIcon sx={{ fontSize: 48, color: 'secondary.main', opacity: 0.3 }} />
                 </Box>
               </CardContent>
             </Card>
@@ -409,7 +428,7 @@ function UserManagement() {
                       {activeUsers.filter((u) => u.is_licensed).length}
                     </Typography>
                   </Box>
-                  <BadgeIcon sx={{ fontSize: 48, color: '#2e7d32', opacity: 0.3 }} />
+                  <BadgeIcon sx={{ fontSize: 48, color: 'success.main', opacity: 0.3 }} />
                 </Box>
               </CardContent>
             </Card>
@@ -430,7 +449,7 @@ function UserManagement() {
                       )}
                     </Typography>
                   </Box>
-                  <MoneyIcon sx={{ fontSize: 48, color: '#ff6b00', opacity: 0.3 }} />
+                  <MoneyIcon sx={{ fontSize: 48, color: 'primary.main', opacity: 0.3 }} />
                 </Box>
               </CardContent>
             </Card>
@@ -448,7 +467,7 @@ function UserManagement() {
                       {activeUsers.filter((u) => isLicenseExpiring(u.license_expiration)).length}
                     </Typography>
                   </Box>
-                  <WarningIcon sx={{ fontSize: 48, color: '#ed6c02', opacity: 0.3 }} />
+                  <WarningIcon sx={{ fontSize: 48, color: 'warning.main', opacity: 0.3 }} />
                 </Box>
               </CardContent>
             </Card>
@@ -599,7 +618,23 @@ function UserManagement() {
                   value={formData.password}
                   onChange={handleInputChange}
                   required={!editMode}
-                  helperText={editMode ? 'Leave blank to keep current password' : ''}
+                  error={formData.password && !passwordValidation.valid}
+                  helperText={
+                    formData.password
+                      ? (passwordValidation.valid
+                          ? '✓ Password meets requirements'
+                          : `Missing: ${passwordValidation.errors.join(', ')}`)
+                      : (editMode
+                          ? 'Leave blank to keep current password'
+                          : 'Min 8 chars, 1 uppercase, 1 lowercase, 1 number')
+                  }
+                  FormHelperTextProps={{
+                    sx: {
+                      color: formData.password
+                        ? (passwordValidation.valid ? 'success.main' : 'error.main')
+                        : 'text.secondary'
+                    }
+                  }}
                 />
               </Grid>
 
@@ -627,6 +662,7 @@ function UserManagement() {
                     <MenuItem value="manager">Manager</MenuItem>
                     <MenuItem value="office">Office</MenuItem>
                     <MenuItem value="technician">Technician</MenuItem>
+                    <MenuItem value="warehouse">Warehouse</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

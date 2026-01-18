@@ -125,7 +125,9 @@ function InvoiceList() {
       sx={{
         mb: 2,
         cursor: 'pointer',
-        border: isOverdue(invoice) ? '2px solid #f44336' : 'none',
+        border: isOverdue(invoice) ? 2 : 0,
+        borderStyle: 'solid',
+        borderColor: isOverdue(invoice) ? 'error.main' : 'transparent',
         '&:hover': { boxShadow: 4 }
       }}
       onClick={() => navigate(`/invoices/${invoice.id}`)}
@@ -178,7 +180,7 @@ function InvoiceList() {
   );
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppHeader title="Invoices" />
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
@@ -222,7 +224,7 @@ function InvoiceList() {
               </Card>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Card elevation={2} sx={{ bgcolor: stats.overdue_count > 0 ? '#ffebee' : undefined }}>
+              <Card elevation={2} sx={{ bgcolor: stats.overdue_count > 0 ? 'error.light' : undefined }}>
                 <CardContent sx={{ textAlign: 'center', py: 2 }}>
                   <Typography variant="h4" color="error.main" fontWeight="bold">
                     {stats.overdue_count || 0}
@@ -315,7 +317,7 @@ function InvoiceList() {
           <TableContainer component={Paper} elevation={2}>
             <Table>
               <TableHead>
-                <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                <TableRow sx={{ bgcolor: 'background.default' }}>
                   <TableCell><strong>Invoice #</strong></TableCell>
                   <TableCell><strong>Customer</strong></TableCell>
                   <TableCell><strong>Work Order</strong></TableCell>
@@ -335,8 +337,8 @@ function InvoiceList() {
                     hover
                     sx={{
                       cursor: 'pointer',
-                      bgcolor: isOverdue(invoice) ? '#fff3f3' : undefined,
-                      '&:hover': { bgcolor: isOverdue(invoice) ? '#ffebee' : undefined }
+                      bgcolor: isOverdue(invoice) ? 'error.light' : undefined,
+                      '&:hover': { bgcolor: isOverdue(invoice) ? 'error.light' : undefined }
                     }}
                     onClick={() => navigate(`/invoices/${invoice.id}`)}
                   >

@@ -17,10 +17,7 @@ import UserManagement from "./components/admin/UserManagement";
 import ContradictionsReport from "./components/admin/ContradictionsReport";
 import ManagerWorkerAssignments from "./components/admin/ManagerWorkerAssignments";
 import PTOApprovalPage from "./components/admin/PTOApprovalPage";
-import TimeEntry from "./components/TimeEntry";
-import MyTimecard from "./components/MyTimecard";
 import Timesheet from "./components/time/Timesheet";
-import Reports from "./components/Reports";
 import ReportsPage from "./components/ReportsPage";
 import MobileDashboard from "./components/MobileDashboard";
 import Customers from "./components/Customers";
@@ -34,6 +31,9 @@ import QuoteDetail from "./components/QuoteDetail";
 import QuoteForm from "./components/QuoteForm";
 import ProfilePage from "./components/ProfilePage";
 import SettingsPage from "./components/SettingsPage";
+import VansList from "./components/VansList";
+import ReturnRackPage from "./components/ReturnRackPage";
+import JobMaterialScanner from "./components/JobMaterialScanner";
 import { getCurrentUser } from "./api";
 
 function AppContent() {
@@ -93,6 +93,29 @@ function AppContent() {
     return hasAccess ? children : <Navigate to="/" />;
   };
 
+  // Route for Admin OR Office access (e.g., Invoices)
+  const AdminOrOfficeRoute = ({ children }) => {
+    const [hasAccess, setHasAccess] = React.useState(null);
+
+    React.useEffect(() => {
+      const checkAccess = async () => {
+        try {
+          const userData = await getCurrentUser();
+          setHasAccess(userData.role === 'admin' || userData.role === 'office');
+        } catch (err) {
+          setHasAccess(false);
+        }
+      };
+      checkAccess();
+    }, []);
+
+    if (hasAccess === null) {
+      return <div>Loading...</div>;
+    }
+
+    return hasAccess ? children : <Navigate to="/" />;
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -120,6 +143,30 @@ function AppContent() {
             element={
               <PrivateRoute>
                 <InventoryScanner />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/vans"
+            element={
+              <PrivateRoute>
+                <VansList />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/return-rack"
+            element={
+              <PrivateRoute>
+                <ReturnRackPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/job-scanner"
+            element={
+              <PrivateRoute>
+                <JobMaterialScanner />
               </PrivateRoute>
             }
           />
@@ -242,17 +289,17 @@ function AppContent() {
           <Route
             path="/invoices"
             element={
-              <AdminRoute>
+              <AdminOrOfficeRoute>
                 <InvoiceList />
-              </AdminRoute>
+              </AdminOrOfficeRoute>
             }
           />
           <Route
             path="/invoices/:id"
             element={
-              <AdminRoute>
+              <AdminOrOfficeRoute>
                 <InvoiceDetail />
-              </AdminRoute>
+              </AdminOrOfficeRoute>
             }
           />
           <Route

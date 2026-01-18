@@ -131,3 +131,11 @@ backups/
 !.env.production.template
 !backend/.env.example
 !ops/droplet/.env.droplet.template
+
+# Database dumps
+database/*.sql.gz
+database/*.sql.bak
+
+# Build artifacts
+frontend/build.zip
+nul

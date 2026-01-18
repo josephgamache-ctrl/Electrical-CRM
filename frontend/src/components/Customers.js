@@ -183,7 +183,7 @@ function Customers() {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
         <AppHeader title="Customers" />
         <Container maxWidth="lg" sx={{ py: 4, display: 'flex', justifyContent: 'center' }}>
           <CircularProgress />
@@ -193,7 +193,7 @@ function Customers() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppHeader title="Customers" />
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Paper elevation={3} sx={{ p: 3 }}>

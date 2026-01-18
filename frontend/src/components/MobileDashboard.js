@@ -59,28 +59,40 @@ function MobileDashboard() {
       const dashboardData = await getMyDashboardJobs();
 
       // Process my jobs - already sorted by date/time from backend
+      // Then sort to show jobs needing crew (no crew scheduled for today) at the top
       const myJobsList = (dashboardData.my_jobs || []).map(job => ({
         id: job.id,
         title: job.job_description || `Work Order #${job.work_order_number}`,
+        address: [job.service_address, job.service_city, job.service_state].filter(Boolean).join(', ') || 'No Address',
+        workOrderNumber: job.work_order_number,
         customer: job.customer_name || 'Unknown Customer',
         status: job.status || 'Pending',
         statusColor: getStatusColor(job.status),
-        scheduledDate: job.scheduled_date,
+        scheduledDate: job.scheduled_date || job.start_date,
         scheduledStartTime: job.scheduled_start_time,
         crew: job.crew || [],
         workOrder: job,
-      }));
+        needsCrew: !job.crew || job.crew.length === 0, // Flag for sorting
+      })).sort((a, b) => {
+        // Jobs without crew come first (need attention)
+        if (a.needsCrew && !b.needsCrew) return -1;
+        if (!a.needsCrew && b.needsCrew) return 1;
+        // Then by start time
+        return (a.scheduledStartTime || '08:00').localeCompare(b.scheduledStartTime || '08:00');
+      });
 
       // Process service calls - already sorted by priority/date from backend
       const serviceCallsList = (dashboardData.service_calls || []).map(job => ({
         id: job.id,
         title: job.job_description || `Work Order #${job.work_order_number}`,
+        address: [job.service_address, job.service_city, job.service_state].filter(Boolean).join(', ') || 'No Address',
+        workOrderNumber: job.work_order_number,
         customer: job.customer_name || 'Unknown Customer',
         status: job.status || 'Pending',
         statusColor: getStatusColor(job.status),
         jobType: job.job_type,
         priority: job.priority,
-        scheduledDate: job.scheduled_date,
+        scheduledDate: job.scheduled_date || job.start_date,
         crew: job.crew || [],
         workOrder: job,
       }));
@@ -431,8 +443,8 @@ function MobileDashboard() {
               todayJobs.map((job, idx) => (
                 <div key={idx} className="job-item" onClick={() => navigate(`/jobs/${job.id}`)}>
                   <div className="job-info">
-                    <div className="job-title">{job.title}</div>
-                    <div className="job-customer">{job.customer}</div>
+                    <div className="job-title">{job.address}</div>
+                    <div className="job-customer">{job.workOrderNumber} - {job.customer}</div>
                   </div>
                   <div className="job-actions">
                     <AssignedAvatars assignedWorkers={job.crew} size="small" max={2} />
@@ -441,7 +453,7 @@ function MobileDashboard() {
                         <IconButton
                           size="small"
                           onClick={(e) => handleOpenModifyCrew(job, e)}
-                          sx={{ color: '#667eea', ml: 0.5 }}
+                          sx={{ color: 'primary.main', ml: 0.5 }}
                         >
                           <GroupAddIcon fontSize="small" />
                         </IconButton>
@@ -454,7 +466,7 @@ function MobileDashboard() {
                 </div>
               ))
             ) : (
-              <div style={{ padding: '20px', textAlign: 'center', color: '#6c757d' }}>
+              <div className="empty-message">
                 No jobs scheduled for today
               </div>
             )}
@@ -473,8 +485,8 @@ function MobileDashboard() {
               serviceCalls.map((call, idx) => (
                 <div key={idx} className="job-item" onClick={() => navigate(`/jobs/${call.id}`)}>
                   <div className="job-info">
-                    <div className="job-title">{call.title}</div>
-                    <div className="job-customer">{call.customer}</div>
+                    <div className="job-title">{call.address}</div>
+                    <div className="job-customer">{call.workOrderNumber} - {call.customer}</div>
                   </div>
                   <div className="job-actions">
                     <AssignedAvatars assignedWorkers={call.crew} size="small" max={2} />
@@ -483,7 +495,7 @@ function MobileDashboard() {
                         <IconButton
                           size="small"
                           onClick={(e) => handleOpenModifyCrew(call, e)}
-                          sx={{ color: '#f5576c', ml: 0.5 }}
+                          sx={{ color: 'error.main', ml: 0.5 }}
                         >
                           <GroupAddIcon fontSize="small" />
                         </IconButton>
@@ -496,7 +508,7 @@ function MobileDashboard() {
                 </div>
               ))
             ) : (
-              <div style={{ padding: '20px', textAlign: 'center', color: '#6c757d' }}>
+              <div className="empty-message">
                 No service calls
               </div>
             )}

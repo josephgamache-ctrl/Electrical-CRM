@@ -133,7 +133,7 @@ function LaborTimecardsReport() {
                   <Typography variant="h6" gutterBottom color="primary">
                     Labor Cost
                   </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#f44336' }}>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'error.main' }}>
                     {formatCurrency(reportData.summary?.total_labor_cost || 0)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
@@ -149,7 +149,7 @@ function LaborTimecardsReport() {
                   <Typography variant="h6" gutterBottom color="primary">
                     Labor Revenue
                   </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#4caf50' }}>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'success.main' }}>
                     {formatCurrency(reportData.summary?.total_labor_revenue || 0)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
@@ -165,7 +165,7 @@ function LaborTimecardsReport() {
                   <Typography variant="h6" gutterBottom color="primary">
                     Labor Margin
                   </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#2196f3' }}>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'info.main' }}>
                     {reportData.summary?.total_labor_revenue > 0
                       ? (((reportData.summary.total_labor_revenue - reportData.summary.total_labor_cost) / reportData.summary.total_labor_revenue) * 100).toFixed(1)
                       : 0}%
@@ -258,10 +258,10 @@ function LaborTimecardsReport() {
                         <TableCell align="right">{formatHours(timecard.hours_worked)}</TableCell>
                         <TableCell align="right">{formatCurrency(timecard.pay_rate)}/hr</TableCell>
                         <TableCell align="right">{formatCurrency(timecard.bill_rate)}/hr</TableCell>
-                        <TableCell align="right" sx={{ color: '#f44336' }}>
+                        <TableCell align="right" sx={{ color: 'error.main' }}>
                           {formatCurrency(timecard.pay_amount)}
                         </TableCell>
-                        <TableCell align="right" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
+                        <TableCell align="right" sx={{ color: 'success.main', fontWeight: 'bold' }}>
                           {formatCurrency(timecard.bill_amount)}
                         </TableCell>
                       </TableRow>

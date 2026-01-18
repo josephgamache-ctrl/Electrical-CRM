@@ -196,9 +196,9 @@ function InventoryProjectionsReport() {
 
   const getUrgencyBgColor = (urgency) => {
     switch (urgency) {
-      case 'critical': return '#ffebee';
-      case 'urgent': return '#fff3e0';
-      case 'warning': return '#e3f2fd';
+      case 'critical': return 'error.light';
+      case 'urgent': return 'warning.light';
+      case 'warning': return 'info.light';
       default: return 'transparent';
     }
   };
@@ -284,7 +284,7 @@ function InventoryProjectionsReport() {
       {/* Summary Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: projectionData?.summary?.critical > 0 ? '#ffebee' : '#e8f5e9' }}>
+          <Card sx={{ bgcolor: projectionData?.summary?.critical > 0 ? 'error.light' : 'success.light' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <ErrorIcon color={projectionData?.summary?.critical > 0 ? 'error' : 'success'} />
@@ -297,7 +297,7 @@ function InventoryProjectionsReport() {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: projectionData?.summary?.urgent > 0 ? '#fff3e0' : '#e3f2fd' }}>
+          <Card sx={{ bgcolor: projectionData?.summary?.urgent > 0 ? 'warning.light' : 'info.light' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <WarningIcon color={projectionData?.summary?.urgent > 0 ? 'warning' : 'info'} />
@@ -310,7 +310,7 @@ function InventoryProjectionsReport() {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#e3f2fd' }}>
+          <Card sx={{ bgcolor: 'info.light' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <TrendingDownIcon color="info" />

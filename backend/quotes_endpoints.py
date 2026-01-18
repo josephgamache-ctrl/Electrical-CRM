@@ -9,8 +9,18 @@ from typing import Optional, List, Dict, Any
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from psycopg2.extras import Json
+import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/quotes", tags=["Quotes"])
+
+def log_and_raise_quote_error(e: Exception, context: str = ""):
+    """Helper to log errors and raise HTTPException with generic message."""
+    error_id = str(uuid.uuid4())[:8]
+    logger.error(f"Quote Error {error_id} ({context}): {type(e).__name__}: {str(e)}")
+    raise HTTPException(status_code=500, detail=f"Quote operation failed. Reference: {error_id}")
 
 # These will be set by main.py when registering the router
 _get_db_connection = None
@@ -127,6 +137,26 @@ class CustomerApproval(BaseModel):
 
 # SECURITY: Valid tier keys whitelist to prevent SQL injection
 VALID_TIER_KEYS = {'basic', 'standard', 'premium'}
+
+# SECURITY: Whitelist of allowed fields for UPDATE operations to prevent SQL injection
+# Field names from Pydantic models must match these exactly
+ALLOWED_QUOTE_UPDATE_FIELDS = {
+    'customer_id', 'customer_site_id', 'title', 'job_description', 'scope_of_work',
+    'service_address', 'service_city', 'service_state', 'service_zip', 'job_type',
+    'valid_until', 'estimated_start_date', 'estimated_duration_days',
+    'discount_percent', 'tax_rate', 'internal_notes', 'terms_and_conditions', 'status'
+}
+
+ALLOWED_LINE_ITEM_UPDATE_FIELDS = {
+    'item_type', 'inventory_id', 'description', 'quantity', 'unit',
+    'unit_cost', 'unit_price', 'markup_percent', 'tier_basic', 'tier_standard',
+    'tier_premium', 'line_order', 'is_optional', 'notes'
+}
+
+ALLOWED_TEMPLATE_UPDATE_FIELDS = {
+    'name', 'description', 'job_type', 'scope_of_work',
+    'terms_and_conditions', 'estimated_duration_days', 'is_active'
+}
 
 
 def validate_tier_key(tier_key: str) -> str:
@@ -287,7 +317,7 @@ async def create_quote(quote: QuoteCreate, request: Request):
 
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        log_and_raise_quote_error(e, "quote operation")
     finally:
         conn.close()
 
@@ -427,13 +457,13 @@ async def update_quote(quote_id: int, quote: QuoteUpdate, request: Request):
         if existing['status'] not in ('draft',) and quote.status is None:
             raise HTTPException(status_code=400, detail="Can only edit draft quotes")
 
-        # Build update
+        # Build update - SECURITY: Only allow whitelisted fields to prevent SQL injection
         updates = []
         params = []
         update_data = quote.dict(exclude_unset=True)
 
         for field, value in update_data.items():
-            if value is not None:
+            if value is not None and field in ALLOWED_QUOTE_UPDATE_FIELDS:
                 updates.append(f"{field} = %s")
                 params.append(value)
 
@@ -462,15 +492,19 @@ async def update_quote(quote_id: int, quote: QuoteUpdate, request: Request):
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        log_and_raise_quote_error(e, "quote operation")
     finally:
         conn.close()
 
 
 @router.delete("/{quote_id}")
 async def delete_quote(quote_id: int, request: Request):
-    """Delete a quote (only drafts can be deleted)"""
+    """Delete a quote (only drafts can be deleted, admin/manager only)"""
     user = await _get_current_user_func(request.headers.get("Authorization", "").replace("Bearer ", ""))
+
+    # Authorization check - only admin or manager can delete quotes
+    if user['role'] not in ('admin', 'manager'):
+        raise HTTPException(status_code=403, detail="Only admins and managers can delete quotes")
 
     conn = get_db()
     try:
@@ -499,8 +533,12 @@ async def delete_quote(quote_id: int, request: Request):
 
 @router.post("/{quote_id}/line-items")
 async def add_line_item(quote_id: int, item: QuoteLineItemCreate, request: Request):
-    """Add a line item to a quote"""
+    """Add a line item to a quote (admin/manager or users with quote permissions)"""
     user = await _get_current_user_func(request.headers.get("Authorization", "").replace("Bearer ", ""))
+
+    # Authorization check
+    if user['role'] not in ('admin', 'manager') and not user.get('can_create_quotes'):
+        raise HTTPException(status_code=403, detail="Not authorized to modify quotes")
 
     conn = get_db()
     try:
@@ -552,15 +590,19 @@ async def add_line_item(quote_id: int, item: QuoteLineItemCreate, request: Reque
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        log_and_raise_quote_error(e, "quote operation")
     finally:
         conn.close()
 
 
 @router.patch("/{quote_id}/line-items/{item_id}")
 async def update_line_item(quote_id: int, item_id: int, item: QuoteLineItemUpdate, request: Request):
-    """Update a line item"""
+    """Update a line item (admin/manager or users with quote permissions)"""
     user = await _get_current_user_func(request.headers.get("Authorization", "").replace("Bearer ", ""))
+
+    # Authorization check
+    if user['role'] not in ('admin', 'manager') and not user.get('can_create_quotes'):
+        raise HTTPException(status_code=403, detail="Not authorized to modify quotes")
 
     conn = get_db()
     try:
@@ -578,13 +620,13 @@ async def update_line_item(quote_id: int, item_id: int, item: QuoteLineItemUpdat
         if existing['status'] != 'draft':
             raise HTTPException(status_code=400, detail="Can only edit items in draft quotes")
 
-        # Build update
+        # Build update - SECURITY: Only allow whitelisted fields to prevent SQL injection
         updates = []
         params = []
         update_data = item.dict(exclude_unset=True)
 
         for field, value in update_data.items():
-            if value is not None:
+            if value is not None and field in ALLOWED_LINE_ITEM_UPDATE_FIELDS:
                 updates.append(f"{field} = %s")
                 params.append(value)
 
@@ -602,15 +644,19 @@ async def update_line_item(quote_id: int, item_id: int, item: QuoteLineItemUpdat
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        log_and_raise_quote_error(e, "quote operation")
     finally:
         conn.close()
 
 
 @router.delete("/{quote_id}/line-items/{item_id}")
 async def delete_line_item(quote_id: int, item_id: int, request: Request):
-    """Delete a line item"""
+    """Delete a line item (admin/manager or users with quote permissions)"""
     user = await _get_current_user_func(request.headers.get("Authorization", "").replace("Bearer ", ""))
+
+    # Authorization check
+    if user['role'] not in ('admin', 'manager') and not user.get('can_create_quotes'):
+        raise HTTPException(status_code=403, detail="Not authorized to modify quotes")
 
     conn = get_db()
     try:
@@ -845,11 +891,17 @@ async def convert_to_work_order(quote_id: int, request: Request):
         # Add materials to job_materials_used
         for item in line_items:
             if item['item_type'] == 'material' and item['inventory_id']:
+                # Get actual cost from inventory for accurate cost tracking
+                cur.execute("SELECT cost, sell_price FROM inventory WHERE id = %s", (item['inventory_id'],))
+                inv_item = cur.fetchone()
+                actual_cost = float(inv_item['cost'] or 0) if inv_item else 0
+                actual_sell = float(inv_item['sell_price'] or item['unit_price'] or 0) if inv_item else float(item['unit_price'] or 0)
+
                 cur.execute("""
                     INSERT INTO job_materials_used (
-                        work_order_id, inventory_id, quantity_needed, unit_cost, status
-                    ) VALUES (%s, %s, %s, %s, 'planned')
-                """, (work_order_id, item['inventory_id'], item['quantity'], item['unit_price']))
+                        work_order_id, inventory_id, quantity_needed, unit_cost, unit_price, status
+                    ) VALUES (%s, %s, %s, %s, %s, 'planned')
+                """, (work_order_id, item['inventory_id'], item['quantity'], actual_cost, actual_sell))
 
         # Update quote
         cur.execute("""
@@ -877,7 +929,7 @@ async def convert_to_work_order(quote_id: int, request: Request):
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        log_and_raise_quote_error(e, "quote operation")
     finally:
         conn.close()
 
@@ -1088,7 +1140,7 @@ async def create_quote_template(template: QuoteTemplateCreate, request: Request)
 
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        log_and_raise_quote_error(e, "quote operation")
     finally:
         conn.close()
 
@@ -1105,12 +1157,13 @@ async def update_quote_template(template_id: int, template: QuoteTemplateUpdate,
     try:
         cur = conn.cursor()
 
+        # SECURITY: Only allow whitelisted fields to prevent SQL injection
         updates = []
         params = []
         update_data = template.dict(exclude_unset=True)
 
         for field, value in update_data.items():
-            if value is not None:
+            if value is not None and field in ALLOWED_TEMPLATE_UPDATE_FIELDS:
                 updates.append(f"{field} = %s")
                 params.append(value)
 
@@ -1184,7 +1237,7 @@ async def add_template_line_item(template_id: int, item: QuoteLineItemCreate, re
 
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        log_and_raise_quote_error(e, "quote operation")
     finally:
         conn.close()
 
@@ -1307,7 +1360,7 @@ async def create_quote_from_template(template_id: int, request: Request, custome
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        log_and_raise_quote_error(e, "quote operation")
     finally:
         conn.close()
 
@@ -1415,7 +1468,7 @@ async def clone_quote(quote_id: int, request: Request, customer_id: Optional[int
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        log_and_raise_quote_error(e, "quote operation")
     finally:
         conn.close()
 
@@ -1483,6 +1536,6 @@ async def save_quote_as_template(quote_id: int, request: Request, name: str = No
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        log_and_raise_quote_error(e, "quote operation")
     finally:
         conn.close()

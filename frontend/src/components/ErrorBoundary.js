@@ -62,7 +62,7 @@ class ErrorBoundary extends React.Component {
                 The application encountered an unexpected error. Please try refreshing the page or go back to the home page.
               </Typography>
 
-              {process.env.NODE_ENV === 'development' && this.state.error && (
+              {this.state.error && (
                 <Paper
                   sx={{
                     p: 2,

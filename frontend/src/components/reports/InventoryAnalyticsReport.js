@@ -178,7 +178,7 @@ function InventoryAnalyticsReport() {
       {/* Summary Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: stockoutData?.summary?.critical > 0 ? '#ffebee' : '#e8f5e9' }}>
+          <Card sx={{ bgcolor: stockoutData?.summary?.critical > 0 ? 'error.light' : 'success.light' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <ErrorIcon color={stockoutData?.summary?.critical > 0 ? 'error' : 'success'} />
@@ -193,7 +193,7 @@ function InventoryAnalyticsReport() {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: reorderData?.summary?.immediate_count > 0 ? '#fff3e0' : '#e3f2fd' }}>
+          <Card sx={{ bgcolor: reorderData?.summary?.immediate_count > 0 ? 'warning.light' : 'info.light' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <ShoppingCartIcon color={reorderData?.summary?.immediate_count > 0 ? 'warning' : 'info'} />
@@ -208,7 +208,7 @@ function InventoryAnalyticsReport() {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: cycleCountData?.summary?.overdue > 0 ? '#fce4ec' : '#f3e5f5' }}>
+          <Card sx={{ bgcolor: cycleCountData?.summary?.overdue > 0 ? 'error.light' : 'secondary.light' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <AssessmentIcon color={cycleCountData?.summary?.overdue > 0 ? 'error' : 'secondary'} />
@@ -223,7 +223,7 @@ function InventoryAnalyticsReport() {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#fff8e1' }}>
+          <Card sx={{ bgcolor: 'warning.light' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <TrendingDownIcon color="warning" />
@@ -338,7 +338,7 @@ function InventoryAnalyticsReport() {
 
         <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={4}>
-            <Card sx={{ bgcolor: '#e3f2fd' }}>
+            <Card sx={{ bgcolor: 'info.light' }}>
               <CardContent>
                 <Typography variant="h6">Class A</Typography>
                 <Typography variant="h4">{abcData?.summary?.a_class?.count || 0}</Typography>
@@ -348,7 +348,7 @@ function InventoryAnalyticsReport() {
             </Card>
           </Grid>
           <Grid item xs={4}>
-            <Card sx={{ bgcolor: '#fff3e0' }}>
+            <Card sx={{ bgcolor: 'warning.light' }}>
               <CardContent>
                 <Typography variant="h6">Class B</Typography>
                 <Typography variant="h4">{abcData?.summary?.b_class?.count || 0}</Typography>
@@ -358,7 +358,7 @@ function InventoryAnalyticsReport() {
             </Card>
           </Grid>
           <Grid item xs={4}>
-            <Card sx={{ bgcolor: '#f5f5f5' }}>
+            <Card sx={{ bgcolor: 'background.default' }}>
               <CardContent>
                 <Typography variant="h6">Class C</Typography>
                 <Typography variant="h4">{abcData?.summary?.c_class?.count || 0}</Typography>
@@ -524,7 +524,7 @@ function InventoryAnalyticsReport() {
 
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid item xs={12} md={4}>
-            <Card sx={{ bgcolor: '#ffebee' }}>
+            <Card sx={{ bgcolor: 'error.light' }}>
               <CardContent>
                 <Typography variant="h6">Total Shrinkage</Typography>
                 <Typography variant="h4" color="error">
@@ -534,7 +534,7 @@ function InventoryAnalyticsReport() {
             </Card>
           </Grid>
           <Grid item xs={12} md={4}>
-            <Card sx={{ bgcolor: '#e8f5e9' }}>
+            <Card sx={{ bgcolor: 'success.light' }}>
               <CardContent>
                 <Typography variant="h6">Total Overage</Typography>
                 <Typography variant="h4" color="success.main">

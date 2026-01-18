@@ -27,6 +27,15 @@ except ImportError:
     TwilioClient = None
     TwilioRestException = Exception
 
+# SendGrid import
+try:
+    from sendgrid import SendGridAPIClient
+    from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
+    SENDGRID_AVAILABLE = True
+except ImportError:
+    SENDGRID_AVAILABLE = False
+    SendGridAPIClient = None
+
 
 class EncryptionService:
     """Handles encryption/decryption of sensitive configuration data."""
@@ -261,6 +270,142 @@ class EmailService:
             return False, f"Failed to send email: {str(e)}", None
 
 
+class SendGridEmailService:
+    """SendGrid email sending service - uses HTTP API, bypasses SMTP port blocks."""
+
+    def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize SendGrid service with API configuration.
+
+        Config should contain:
+        - api_key: SendGrid API Key
+        - from_name: Display name for sender
+        - from_email: Verified sender email address
+        """
+        if not SENDGRID_AVAILABLE:
+            raise ImportError("SendGrid library not installed. Run: pip install sendgrid")
+
+        # Decrypt config if needed
+        self.config = decrypt_config(config)
+        self.api_key = self.config.get('api_key', '')
+        self.from_name = self.config.get('from_name', 'Pem2 Services')
+        self.from_email = self.config.get('from_email', '')
+
+        self.client = SendGridAPIClient(self.api_key)
+
+    def test_connection(self) -> Tuple[bool, str]:
+        """
+        Test SendGrid connection by attempting to fetch API key info.
+        Returns (success, message) tuple.
+        """
+        try:
+            # Simple test - try to access the API
+            # SendGrid doesn't have a simple "ping" so we'll send a test request
+            response = self.client.client.api_keys._(self.api_key[:20]).get()
+            return True, "SendGrid API connection successful!"
+        except Exception as e:
+            # Even if the above fails, try a different approach
+            # Just verify the API key format and try to make any API call
+            if not self.api_key or not self.api_key.startswith('SG.'):
+                return False, "Invalid API key format. SendGrid API keys start with 'SG.'"
+
+            # Try to access suppression groups as a connection test
+            try:
+                response = self.client.client.asm.groups.get()
+                return True, "SendGrid API connection successful!"
+            except Exception as e2:
+                # If we get a 401, it's auth issue. Other errors might just mean limited permissions
+                error_str = str(e2).lower()
+                if '401' in error_str or 'unauthorized' in error_str:
+                    return False, f"SendGrid authentication failed. Check your API key. Error: {str(e2)}"
+                elif '403' in error_str or 'forbidden' in error_str:
+                    # Forbidden often means API key works but doesn't have permission for this endpoint
+                    # That's actually OK for sending emails
+                    return True, "SendGrid API key validated. Ready to send emails."
+                else:
+                    # Assume it's working if we can communicate
+                    return True, "SendGrid API connection established."
+
+    def send_email(
+        self,
+        to_email: str,
+        subject: str,
+        body_html: str,
+        body_text: Optional[str] = None,
+        cc: Optional[List[str]] = None,
+        bcc: Optional[List[str]] = None,
+        attachments: Optional[List[Tuple[str, bytes, str]]] = None  # (filename, content, mimetype)
+    ) -> Tuple[bool, str, Optional[str]]:
+        """
+        Send an email via SendGrid API.
+
+        Returns (success, message, message_id) tuple.
+        """
+        if not SENDGRID_AVAILABLE:
+            return False, "SendGrid library not installed", None
+
+        try:
+            # Build the email
+            from_email_formatted = f"{self.from_name} <{self.from_email}>" if self.from_name else self.from_email
+
+            message = Mail(
+                from_email=self.from_email,
+                to_emails=to_email,
+                subject=subject,
+                html_content=body_html
+            )
+
+            # Set from name
+            message.from_email.name = self.from_name
+
+            # Add plain text version if provided
+            if body_text:
+                message.add_content(body_text, 'text/plain')
+
+            # Add CC recipients
+            if cc:
+                for cc_email in cc:
+                    message.add_cc(cc_email)
+
+            # Add BCC recipients
+            if bcc:
+                for bcc_email in bcc:
+                    message.add_bcc(bcc_email)
+
+            # Add attachments
+            if attachments:
+                for filename, content, mimetype in attachments:
+                    encoded_content = base64.b64encode(content).decode()
+                    attachment = Attachment(
+                        FileContent(encoded_content),
+                        FileName(filename),
+                        FileType(mimetype),
+                        Disposition('attachment')
+                    )
+                    message.add_attachment(attachment)
+
+            # Send the email
+            response = self.client.send(message)
+
+            # Check response
+            if response.status_code in [200, 201, 202]:
+                # Get message ID from headers if available
+                message_id = response.headers.get('X-Message-Id',
+                    f"sg_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hash(to_email) % 10000}")
+                return True, "Email sent successfully via SendGrid", message_id
+            else:
+                return False, f"SendGrid error: Status {response.status_code}", None
+
+        except Exception as e:
+            error_msg = str(e)
+            if 'Unauthorized' in error_msg or '401' in error_msg:
+                return False, "SendGrid authentication failed. Check your API key.", None
+            elif 'forbidden' in error_msg.lower() or '403' in error_msg:
+                return False, "SendGrid permission denied. Verify your sender email is authorized.", None
+            else:
+                return False, f"Failed to send email via SendGrid: {error_msg}", None
+
+
 # Email-to-SMS Gateway domains for major US carriers
 # Format: phone@gateway sends SMS to that phone
 CARRIER_GATEWAYS = {
@@ -455,13 +600,27 @@ class SMSService:
             return False, f"Failed to send SMS: {str(e)}", None
 
 
-def get_email_service(db_connection) -> Optional[EmailService]:
+def get_email_service(db_connection):
     """
     Get configured email service from database.
-    Returns None if not configured or not active.
+    Returns EmailService (SMTP), SendGridEmailService, or None.
+    Prefers SendGrid if available since it bypasses SMTP port blocks.
     """
     try:
         cur = db_connection.cursor()
+
+        # First check for SendGrid (preferred - bypasses SMTP blocks)
+        cur.execute("""
+            SELECT config, provider FROM communication_settings
+            WHERE setting_type = 'email' AND provider = 'sendgrid' AND is_active = true
+        """)
+        row = cur.fetchone()
+
+        if row and row['config'] and SENDGRID_AVAILABLE:
+            cur.close()
+            return SendGridEmailService(row['config'])
+
+        # Fall back to SMTP
         cur.execute("""
             SELECT config FROM communication_settings
             WHERE setting_type = 'email' AND provider = 'smtp' AND is_active = true

@@ -5,8 +5,9 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Card, CardContent, CardHeader, CircularProgress, Alert, Stepper, Step,
   StepLabel, Checkbox, FormControlLabel, InputAdornment, Tooltip, Dialog,
-  DialogTitle, DialogContent, DialogActions, Switch
+  DialogTitle, DialogContent, DialogActions, Switch, Snackbar
 } from '@mui/material';
+import ConfirmDialog from './common/ConfirmDialog';
 import {
   ArrowBack as BackIcon, Save as SaveIcon, Add as AddIcon,
   Delete as DeleteIcon, Search as SearchIcon, Inventory as InventoryIcon
@@ -70,6 +71,8 @@ function QuoteForm() {
 
   const [lineItems, setLineItems] = useState([]);
   const [itemDialog, setItemDialog] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+  const [deleteItemDialog, setDeleteItemDialog] = useState({ open: false, itemId: null });
   const [currentItem, setCurrentItem] = useState({
     item_type: 'material',
     inventory_id: null,
@@ -192,7 +195,7 @@ function QuoteForm() {
 
   const handleSaveItem = () => {
     if (!currentItem.description) {
-      alert('Please enter a description');
+      setSnackbar({ open: true, message: 'Please enter a description', severity: 'warning' });
       return;
     }
     const newItem = {
@@ -238,9 +241,12 @@ function QuoteForm() {
     }
   };
 
-  const handleDeleteItem = async (itemId) => {
-    if (!window.confirm('Delete this item?')) return;
+  const handleDeleteItem = (itemId) => {
+    setDeleteItemDialog({ open: true, itemId });
+  };
 
+  const handleConfirmDeleteItem = async () => {
+    const itemId = deleteItemDialog.itemId;
     if (id && !String(itemId).startsWith('temp-')) {
       try {
         const token = localStorage.getItem('token');
@@ -259,6 +265,7 @@ function QuoteForm() {
     } else {
       setLineItems(prev => prev.filter(item => item.id !== itemId));
     }
+    setDeleteItemDialog({ open: false, itemId: null });
   };
 
   const handleInventorySelect = (item) => {
@@ -380,7 +387,7 @@ function QuoteForm() {
           startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
           onClick={handleSaveQuote}
           disabled={saving}
-          sx={{ bgcolor: 'white', color: '#1e3a5f', '&:hover': { bgcolor: '#e0e0e0' } }}
+          sx={{ bgcolor: 'background.paper', color: '#1e3a5f', '&:hover': { bgcolor: '#e0e0e0' } }}
         >
           {saving ? 'Saving...' : 'Save Quote'}
         </Button>
@@ -936,6 +943,34 @@ function QuoteForm() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Delete Item Confirmation */}
+      <ConfirmDialog
+        open={deleteItemDialog.open}
+        onClose={() => setDeleteItemDialog({ open: false, itemId: null })}
+        onConfirm={handleConfirmDeleteItem}
+        title="Delete Item"
+        message="Delete this item from the quote?"
+        confirmText="Delete"
+        confirmColor="error"
+        severity="warning"
+      />
+
+      {/* Notification Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
       </Box>
     </Box>
   );

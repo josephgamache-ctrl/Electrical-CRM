@@ -32,20 +32,64 @@ export function ScheduleProvider({ children }) {
   // Refresh counter - increment to trigger refresh in child components
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Load employees (once on mount)
+  // Load employees based on user role
+  // Managers only see their assigned workers, admins see everyone
   const loadEmployees = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/users`, {
+
+      // First get current user info to determine role
+      const userResponse = await fetch(`${API_BASE_URL}/user/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (response.ok) {
-        const data = await response.json();
-        const usersArray = Array.isArray(data) ? data : (data.users || []);
-        const techs = usersArray.filter(u =>
-          u.role === 'technician' || u.role === 'admin' || u.role === 'manager'
-        );
-        setEmployees(techs);
+
+      if (!userResponse.ok) {
+        throw new Error('Failed to get user info');
+      }
+
+      const currentUser = await userResponse.json();
+
+      // Managers only see their assigned workers + themselves
+      if (currentUser.role === 'manager') {
+        const workersResponse = await fetch(`${API_BASE_URL}/manager/my-workers`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (workersResponse.ok) {
+          const workers = await workersResponse.json();
+          // Convert worker format to match employee format and add the manager themselves
+          const workerEmployees = workers.map(w => ({
+            username: w.worker_username,
+            full_name: w.worker_name,
+            role: w.worker_role,
+            phone: w.phone,
+            email: w.email,
+          }));
+
+          // Add the manager themselves to the list
+          workerEmployees.unshift({
+            username: currentUser.username,
+            full_name: currentUser.full_name,
+            role: currentUser.role,
+            phone: currentUser.phone,
+            email: currentUser.email,
+          });
+
+          setEmployees(workerEmployees);
+        }
+      } else {
+        // Admin and other roles see all technicians, admins, and managers
+        const response = await fetch(`${API_BASE_URL}/users`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const usersArray = Array.isArray(data) ? data : (data.users || []);
+          const techs = usersArray.filter(u =>
+            u.role === 'technician' || u.role === 'admin' || u.role === 'manager'
+          );
+          setEmployees(techs);
+        }
       }
     } catch (err) {
       logger.error('Error loading employees:', err);

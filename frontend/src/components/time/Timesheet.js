@@ -27,6 +27,7 @@ import {
   Toolbar,
   Menu,
   MenuItem,
+  Snackbar,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -84,6 +85,9 @@ function Timesheet() {
     availability_type: 'vacation',
     reason: '',
   });
+
+  // Snackbar state for notifications
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
 
   // Get Monday of current week
   const getMondayOfWeek = (date) => {
@@ -470,10 +474,10 @@ function Timesheet() {
       });
 
       setIsLocked(true);
-      alert('Timesheet submitted successfully!');
+      setSnackbar({ open: true, message: 'Timesheet submitted successfully!', severity: 'success' });
     } catch (err) {
       logger.error('Error submitting timesheet:', err);
-      alert('Error submitting timesheet');
+      setSnackbar({ open: true, message: 'Error submitting timesheet', severity: 'error' });
     }
   };
 
@@ -525,7 +529,7 @@ function Timesheet() {
     const username = localStorage.getItem('username');
 
     if (!username) {
-      alert('Unable to determine current user');
+      setSnackbar({ open: true, message: 'Unable to determine current user', severity: 'error' });
       return;
     }
 
@@ -542,7 +546,7 @@ function Timesheet() {
       setCallOutDialogOpen(true);
     } catch (err) {
       logger.error('Error calling out:', err);
-      alert('Error recording call-out: ' + err.message);
+      setSnackbar({ open: true, message: 'Error recording call-out: ' + err.message, severity: 'error' });
     } finally {
       setCallOutLoading(false);
     }
@@ -553,17 +557,17 @@ function Timesheet() {
     const username = localStorage.getItem('username');
 
     if (!username) {
-      alert('Unable to determine current user');
+      setSnackbar({ open: true, message: 'Unable to determine current user', severity: 'error' });
       return;
     }
 
     if (!ptoForm.start_date || !ptoForm.end_date) {
-      alert('Please select start and end dates');
+      setSnackbar({ open: true, message: 'Please select start and end dates', severity: 'warning' });
       return;
     }
 
     if (ptoForm.start_date > ptoForm.end_date) {
-      alert('End date must be after start date');
+      setSnackbar({ open: true, message: 'End date must be after start date', severity: 'warning' });
       return;
     }
 
@@ -578,7 +582,7 @@ function Timesheet() {
       setPtoResult(result);
     } catch (err) {
       logger.error('Error requesting PTO:', err);
-      alert('Error submitting PTO request: ' + err.message);
+      setSnackbar({ open: true, message: 'Error submitting PTO request: ' + err.message, severity: 'error' });
     } finally {
       setPtoLoading(false);
     }
@@ -609,7 +613,7 @@ function Timesheet() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppHeader title="Timesheet" />
 
       <Box sx={{ p: 2 }}>
@@ -806,7 +810,7 @@ function Timesheet() {
               const typeEntry = nonJobTimeEntries[timeType];
               const typeConfig = NON_JOB_TIME_TYPES[timeType] || { label: timeType, color: '#607d8b' };
               return (
-                <TableRow key={`non-job-${timeType}`} sx={{ bgcolor: '#fafafa' }}>
+                <TableRow key={`non-job-${timeType}`} sx={{ bgcolor: 'background.paper' }}>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Box
@@ -868,7 +872,7 @@ function Timesheet() {
             })}
 
             {/* Daily Totals Row */}
-            <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+            <TableRow sx={{ bgcolor: 'background.default' }}>
               <TableCell sx={{ fontWeight: 'bold' }}>Daily Total</TableCell>
               {weekDates.map((date, index) => (
                 <TableCell key={index} align="center" sx={{ fontWeight: 'bold' }}>
@@ -993,7 +997,7 @@ function Timesheet() {
                   </Typography>
                   <List dense>
                     {callOutResult.affected_jobs.map((job, idx) => (
-                      <ListItem key={idx} sx={{ bgcolor: '#f5f5f5', borderRadius: 1, mb: 0.5 }}>
+                      <ListItem key={idx} sx={{ bgcolor: 'background.default', borderRadius: 1, mb: 0.5 }}>
                         <ListItemText
                           primary={
                             <Typography variant="body2" fontWeight="bold">
@@ -1170,6 +1174,22 @@ function Timesheet() {
           )}
         </DialogActions>
       </Dialog>
+
+      {/* Notification Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
       </Box>
     </Box>
   );

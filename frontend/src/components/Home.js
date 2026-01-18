@@ -58,7 +58,7 @@ function Home() {
   }
 
   return (
-    <Box sx={{ flexGrow: 1, minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ flexGrow: 1, minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppHeader title="Pem2 Services" showSearch={false} />
 
       <Container maxWidth="lg" sx={{ mt: 4 }}>
@@ -75,7 +75,7 @@ function Home() {
             <Card elevation={3} sx={{ height: '100%' }}>
               <CardActionArea onClick={() => navigate('/inventory')} sx={{ height: '100%', p: 3 }}>
                 <CardContent sx={{ textAlign: 'center' }}>
-                  <InventoryIcon sx={{ fontSize: 80, color: '#1976d2', mb: 2 }} />
+                  <InventoryIcon sx={{ fontSize: 80, color: 'secondary.main', mb: 2 }} />
                   <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
                     Inventory
                   </Typography>
@@ -92,7 +92,7 @@ function Home() {
             <Card elevation={3} sx={{ height: '100%' }}>
               <CardActionArea onClick={() => navigate('/jobs')} sx={{ height: '100%', p: 3 }}>
                 <CardContent sx={{ textAlign: 'center' }}>
-                  <WorkIcon sx={{ fontSize: 80, color: '#FF6B00', mb: 2 }} />
+                  <WorkIcon sx={{ fontSize: 80, color: 'primary.main', mb: 2 }} />
                   <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
                     Jobs
                   </Typography>
@@ -109,7 +109,7 @@ function Home() {
             <Card elevation={3} sx={{ height: '100%' }}>
               <CardActionArea onClick={() => navigate('/schedule')} sx={{ height: '100%', p: 3 }}>
                 <CardContent sx={{ textAlign: 'center' }}>
-                  <ScheduleIcon sx={{ fontSize: 80, color: '#2c3e8f', mb: 2 }} />
+                  <ScheduleIcon sx={{ fontSize: 80, color: 'secondary.dark', mb: 2 }} />
                   <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
                     Schedule
                   </Typography>
@@ -126,7 +126,7 @@ function Home() {
             <Card elevation={3} sx={{ height: '100%' }}>
               <CardActionArea onClick={() => navigate('/timesheet')} sx={{ height: '100%', p: 3 }}>
                 <CardContent sx={{ textAlign: 'center' }}>
-                  <TimecardIcon sx={{ fontSize: 80, color: '#9c27b0', mb: 2 }} />
+                  <TimecardIcon sx={{ fontSize: 80, color: 'secondary.main', mb: 2 }} />
                   <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
                     Timesheet
                   </Typography>
@@ -144,7 +144,7 @@ function Home() {
               <Card elevation={3} sx={{ height: '100%' }}>
                 <CardActionArea onClick={() => navigate('/work-orders')} sx={{ height: '100%', p: 3 }}>
                   <CardContent sx={{ textAlign: 'center' }}>
-                    <AssignmentIcon sx={{ fontSize: 80, color: '#2e7d32', mb: 2 }} />
+                    <AssignmentIcon sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
                     <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
                       Work Orders
                     </Typography>
@@ -163,7 +163,7 @@ function Home() {
               <Card elevation={3} sx={{ height: '100%' }}>
                 <CardActionArea onClick={() => navigate('/admin/users')} sx={{ height: '100%', p: 3 }}>
                   <CardContent sx={{ textAlign: 'center' }}>
-                    <AdminIcon sx={{ fontSize: 80, color: '#d32f2f', mb: 2 }} />
+                    <AdminIcon sx={{ fontSize: 80, color: 'error.main', mb: 2 }} />
                     <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
                       Admin
                     </Typography>
@@ -182,7 +182,7 @@ function Home() {
               <Card elevation={3} sx={{ height: '100%' }}>
                 <CardActionArea onClick={() => navigate('/reports')} sx={{ height: '100%', p: 3 }}>
                   <CardContent sx={{ textAlign: 'center' }}>
-                    <ReportsIcon sx={{ fontSize: 80, color: '#667eea', mb: 2 }} />
+                    <ReportsIcon sx={{ fontSize: 80, color: 'secondary.main', mb: 2 }} />
                     <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
                       Reports
                     </Typography>
@@ -200,7 +200,7 @@ function Home() {
             <Card elevation={3} sx={{ height: '100%' }}>
               <CardActionArea onClick={() => navigate('/mobile-dashboard')} sx={{ height: '100%', p: 3 }}>
                 <CardContent sx={{ textAlign: 'center' }}>
-                  <MobileIcon sx={{ fontSize: 80, color: '#1e2656', mb: 2 }} />
+                  <MobileIcon sx={{ fontSize: 80, color: 'secondary.dark', mb: 2 }} />
                   <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
                     Pem2 Dashboard
                   </Typography>
@@ -214,7 +214,7 @@ function Home() {
         </Grid>
 
         {/* Role-specific welcome message */}
-        <Box sx={{ mt: 6, p: 3, bgcolor: 'white', borderRadius: 2, boxShadow: 1 }}>
+        <Box sx={{ mt: 6, p: 3, bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
           {userRole === 'admin' && (
             <>
               <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>

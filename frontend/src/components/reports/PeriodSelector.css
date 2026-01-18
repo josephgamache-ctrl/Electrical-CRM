@@ -1,7 +1,7 @@
 /* Period Selector - Mobile-First Design */
 .period-selector {
   width: 100%;
-  background: #ffffff;
+  background: var(--bg-paper, #ffffff);
   border-radius: 8px;
   padding: 16px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -20,10 +20,10 @@
   align-items: center;
   gap: 6px;
   padding: 10px 16px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color, #ddd);
   border-radius: 20px;
-  background: #f8f9fa;
-  color: #495057;
+  background: var(--bg-hover, #f8f9fa);
+  color: var(--text-primary, #495057);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -35,7 +35,7 @@
 }
 
 .period-pill:hover {
-  background: #e9ecef;
+  background: var(--bg-default, #e9ecef);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -62,7 +62,7 @@
   flex-direction: column;
   gap: 12px;
   padding-top: 16px;
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid var(--border-color, #e9ecef);
   margin-top: 12px;
 }
 
@@ -75,18 +75,18 @@
 .date-input-group label {
   font-size: 13px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text-primary, #495057);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .date-input-group input[type="date"] {
   padding: 10px 12px;
-  border: 1px solid #ced4da;
+  border: 1px solid var(--border-color, #ced4da);
   border-radius: 6px;
   font-size: 14px;
-  color: #495057;
-  background: #fff;
+  color: var(--text-primary, #495057);
+  background: var(--bg-paper, #fff);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -125,11 +125,11 @@
 /* Date Range Display */
 .date-range-display {
   padding: 10px 14px;
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
   border-left: 3px solid #667eea;
   border-radius: 4px;
   font-size: 13px;
-  color: #495057;
+  color: var(--text-primary, #495057);
   font-weight: 500;
   margin-top: 12px;
 }

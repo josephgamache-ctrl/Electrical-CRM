@@ -7,3 +7,4 @@ export { default as LaborTimecardsReport } from './LaborTimecardsReport';
 export { default as DailyActivityReport } from './DailyActivityReport';
 export { default as InventoryAnalyticsReport } from './InventoryAnalyticsReport';
 export { default as ProjectedVsActualReport } from './ProjectedVsActualReport';
+export { default as InventoryMovementReport } from './InventoryMovementReport';

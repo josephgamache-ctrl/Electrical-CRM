@@ -5,8 +5,9 @@ import {
   TableHead, TableRow, TablePagination, Tooltip, CircularProgress, Alert,
   FormControl, InputLabel, Select, Card, CardContent, Grid, Divider,
   Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem,
-  ListItemButton, ListItemText, ListItemIcon, Autocomplete
+  ListItemButton, ListItemText, ListItemIcon, Autocomplete, Snackbar
 } from '@mui/material';
+import ConfirmDialog from './common/ConfirmDialog';
 import {
   Add as AddIcon, Search as SearchIcon, FilterList as FilterIcon,
   MoreVert as MoreIcon, Visibility as ViewIcon, Edit as EditIcon,
@@ -64,6 +65,10 @@ function QuotesList() {
   const [cloneDialog, setCloneDialog] = useState(false);
   const [cloneCustomer, setCloneCustomer] = useState(null);
   const [cloning, setCloning] = useState(false);
+
+  // Snackbar and confirm dialog state
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, quoteId: null });
 
   const fetchQuotes = useCallback(async () => {
     setLoading(true);
@@ -161,25 +166,29 @@ function QuotesList() {
     handleMenuClose();
   };
 
-  const handleDeleteQuote = async () => {
+  const handleDeleteQuote = () => {
     if (!selectedQuote) return;
-    if (!window.confirm('Are you sure you want to delete this quote?')) return;
+    setConfirmDialog({ open: true, quoteId: selectedQuote.id });
+    handleMenuClose();
+  };
 
+  const handleConfirmDelete = async () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${API_BASE_URL}/quotes/${selectedQuote.id}`,
+        `${API_BASE_URL}/quotes/${confirmDialog.quoteId}`,
         {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
         }
       );
       if (!response.ok) throw new Error('Failed to delete quote');
+      setSnackbar({ open: true, message: 'Quote deleted successfully', severity: 'success' });
       fetchQuotes();
     } catch (err) {
       setError(err.message);
     }
-    handleMenuClose();
+    setConfirmDialog({ open: false, quoteId: null });
   };
 
   const handleConvertToWorkOrder = async () => {
@@ -198,7 +207,7 @@ function QuotesList() {
         throw new Error(data.detail || 'Failed to convert quote');
       }
       const data = await response.json();
-      alert(`Quote converted to Work Order ${data.work_order_number}`);
+      setSnackbar({ open: true, message: `Quote converted to Work Order ${data.work_order_number}`, severity: 'success' });
       fetchQuotes();
     } catch (err) {
       setError(err.message);
@@ -208,7 +217,7 @@ function QuotesList() {
 
   const handleCreateFromTemplate = async () => {
     if (!selectedTemplate || !selectedCustomer) {
-      alert('Please select a template and customer');
+      setSnackbar({ open: true, message: 'Please select a template and customer', severity: 'warning' });
       return;
     }
 
@@ -293,7 +302,7 @@ function QuotesList() {
       }
 
       const data = await response.json();
-      alert(`Template "${data.template_name}" created successfully!`);
+      setSnackbar({ open: true, message: `Template "${data.template_name}" created successfully!`, severity: 'success' });
       fetchTemplates();
     } catch (err) {
       setError(err.message);
@@ -351,7 +360,7 @@ function QuotesList() {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => navigate('/quotes/new')}
-          sx={{ bgcolor: 'white', color: '#1e3a5f', '&:hover': { bgcolor: '#e0e0e0' } }}
+          sx={{ bgcolor: 'background.paper', color: '#1e3a5f', '&:hover': { bgcolor: '#e0e0e0' } }}
         >
           New Quote
         </Button>
@@ -718,6 +727,34 @@ function QuotesList() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onClose={() => setConfirmDialog({ open: false, quoteId: null })}
+        onConfirm={handleConfirmDelete}
+        title="Delete Quote"
+        message="Are you sure you want to delete this quote? This action cannot be undone."
+        confirmText="Delete"
+        confirmColor="error"
+        severity="warning"
+      />
+
+      {/* Notification Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
       </Box>
     </Box>
   );

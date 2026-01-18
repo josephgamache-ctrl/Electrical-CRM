@@ -19,6 +19,7 @@ import {
   DialogActions,
   CircularProgress,
 } from '@mui/material';
+import ConfirmDialog from './common/ConfirmDialog';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
@@ -49,6 +50,11 @@ function JobTasks({ workOrderId, workOrder, onError, onSuccess, onTasksConverted
   const [converting, setConverting] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [notes, setNotes] = useState([]);
+
+  // Confirm dialog states
+  const [deleteTaskDialog, setDeleteTaskDialog] = useState({ open: false, taskId: null });
+  const [deleteNoteDialog, setDeleteNoteDialog] = useState({ open: false, noteId: null });
+  const [convertScopeDialog, setConvertScopeDialog] = useState(false);
 
   useEffect(() => {
     loadCurrentUser();
@@ -85,8 +91,14 @@ function JobTasks({ workOrderId, workOrder, onError, onSuccess, onTasksConverted
   const loadNotes = async () => {
     try {
       const data = await fetchWorkOrderNotes(workOrderId);
-      // Ensure data is an array
-      setNotes(Array.isArray(data.notes) ? data.notes : []);
+      // Handle both array (direct) and object with notes property
+      if (Array.isArray(data)) {
+        setNotes(data);
+      } else if (data && Array.isArray(data.notes)) {
+        setNotes(data.notes);
+      } else {
+        setNotes([]);
+      }
     } catch (err) {
       logger.error('Error loading notes:', err);
       setNotes([]);
@@ -126,37 +138,47 @@ function JobTasks({ workOrderId, workOrder, onError, onSuccess, onTasksConverted
     }
   };
 
-  const handleDeleteTask = async (taskId) => {
-    if (!window.confirm('Are you sure you want to delete this task?')) return;
+  const handleDeleteTask = (taskId) => {
+    setDeleteTaskDialog({ open: true, taskId });
+  };
 
+  const handleConfirmDeleteTask = async () => {
     try {
-      await deleteWorkOrderTask(workOrderId, taskId);
+      await deleteWorkOrderTask(workOrderId, deleteTaskDialog.taskId);
       onSuccess?.('Task deleted');
       await loadTasks();
     } catch (err) {
       logger.error('Error deleting task:', err);
       onError?.(err.message);
     }
+    setDeleteTaskDialog({ open: false, taskId: null });
   };
 
-  const handleConvertScope = async (showConfirm = true) => {
-    if (showConfirm && !window.confirm('Convert scope of work to editable tasks? This will archive the original text.')) return;
+  const handleConvertScope = (showConfirm = true) => {
+    if (showConfirm) {
+      setConvertScopeDialog(true);
+    } else {
+      doConvertScope(false);
+    }
+  };
 
+  const doConvertScope = async (showMessages = true) => {
     try {
       setConverting(true);
       const data = await convertScopeToTasks(workOrderId);
-      if (showConfirm) {
+      if (showMessages) {
         onSuccess?.(data.message);
       }
       await loadTasks();
       onTasksConverted?.();
     } catch (err) {
       logger.error('Error converting scope:', err);
-      if (showConfirm) {
+      if (showMessages) {
         onError?.(err.message);
       }
     } finally {
       setConverting(false);
+      setConvertScopeDialog(false);
     }
   };
 
@@ -164,9 +186,8 @@ function JobTasks({ workOrderId, workOrder, onError, onSuccess, onTasksConverted
     if (!taskNote.trim() || !taskNoteDialog) return;
 
     try {
-      // Note: addWorkOrderNote expects note string, but we need task-related note
-      // For now keeping task note functionality inline as it has special fields
-      await addWorkOrderNote(workOrderId, taskNote);
+      // Pass the taskNoteDialog (task ID) to link the note to the task
+      await addWorkOrderNote(workOrderId, taskNote, taskNoteDialog);
       setTaskNote('');
       setTaskNoteDialog(null);
       onSuccess?.('Note added to task');
@@ -177,17 +198,20 @@ function JobTasks({ workOrderId, workOrder, onError, onSuccess, onTasksConverted
     }
   };
 
-  const handleDeleteNote = async (noteId) => {
-    if (!window.confirm('Are you sure you want to delete this note?')) return;
+  const handleDeleteNote = (noteId) => {
+    setDeleteNoteDialog({ open: true, noteId });
+  };
 
+  const handleConfirmDeleteNote = async () => {
     try {
-      await deleteWorkOrderNote(workOrderId, noteId);
+      await deleteWorkOrderNote(workOrderId, deleteNoteDialog.noteId);
       onSuccess?.('Note deleted');
       await loadNotes();
     } catch (err) {
       logger.error('Error deleting note:', err);
       onError?.(err.message);
     }
+    setDeleteNoteDialog({ open: false, noteId: null });
   };
 
   if (loading) {
@@ -215,7 +239,7 @@ function JobTasks({ workOrderId, workOrder, onError, onSuccess, onTasksConverted
     <Paper elevation={3} sx={{ p: 3, mb: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <TaskIcon sx={{ mr: 1, color: '#FF6B00' }} />
+          <TaskIcon sx={{ mr: 1, color: 'primary.main' }} />
           <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
             Scope of Work
           </Typography>
@@ -228,7 +252,7 @@ function JobTasks({ workOrderId, workOrder, onError, onSuccess, onTasksConverted
               onClick={handleConvertScope}
               disabled={converting}
               startIcon={converting ? <CircularProgress size={16} /> : <TaskIcon />}
-              sx={{ borderColor: '#FF6B00', color: '#FF6B00', '&:hover': { borderColor: '#E55F00', bgcolor: '#FFF3E0' } }}
+              sx={{ borderColor: 'primary.main', color: 'primary.main', '&:hover': { borderColor: 'primary.dark', bgcolor: 'primary.light' } }}
             >
               {converting ? 'Converting...' : 'Convert to Tasks'}
             </Button>
@@ -264,7 +288,7 @@ function JobTasks({ workOrderId, workOrder, onError, onSuccess, onTasksConverted
           onClick={handleAddTask}
           disabled={!newTaskDescription.trim() || addingTask}
           startIcon={addingTask ? <CircularProgress size={16} /> : <AddIcon />}
-          sx={{ minWidth: 100, bgcolor: '#FF6B00', '&:hover': { bgcolor: '#E55F00' } }}
+          sx={{ minWidth: 100, bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' } }}
         >
           Add
         </Button>
@@ -282,7 +306,7 @@ function JobTasks({ workOrderId, workOrder, onError, onSuccess, onTasksConverted
               {index > 0 && <Divider />}
               <ListItem
                 sx={{
-                  bgcolor: task.is_completed ? '#f5f5f5' : 'transparent',
+                  bgcolor: task.is_completed ? 'action.disabledBackground' : 'transparent',
                   transition: 'background-color 0.3s',
                 }}
                 secondaryAction={
@@ -316,9 +340,9 @@ function JobTasks({ workOrderId, workOrder, onError, onSuccess, onTasksConverted
                     checked={task.is_completed}
                     onChange={() => handleToggleTask(task.id, task.is_completed)}
                     sx={{
-                      color: '#FF6B00',
+                      color: 'primary.main',
                       '&.Mui-checked': {
-                        color: '#4CAF50',
+                        color: 'success.main',
                       },
                     }}
                   />
@@ -341,8 +365,8 @@ function JobTasks({ workOrderId, workOrder, onError, onSuccess, onTasksConverted
                             size="small"
                             sx={{
                               mt: 0.5,
-                              bgcolor: '#FFF3E0',
-                              color: '#FF6B00',
+                              bgcolor: 'primary.light',
+                              color: 'primary.main',
                               fontSize: '0.7rem',
                               height: 20,
                             }}
@@ -380,8 +404,10 @@ function JobTasks({ workOrderId, workOrder, onError, onSuccess, onTasksConverted
                       mr: 2,
                       mb: 1,
                       p: 1.5,
-                      bgcolor: '#FFF9E6',
-                      borderLeft: '3px solid #FF6B00',
+                      bgcolor: 'warning.light',
+                      borderLeft: 3,
+                      borderLeftStyle: 'solid',
+                      borderLeftColor: 'primary.main',
                       borderRadius: 1,
                       position: 'relative',
                     }}
@@ -437,12 +463,48 @@ function JobTasks({ workOrderId, workOrder, onError, onSuccess, onTasksConverted
             onClick={handleAddTaskNote}
             variant="contained"
             disabled={!taskNote.trim()}
-            sx={{ bgcolor: '#FF6B00', '&:hover': { bgcolor: '#E55F00' } }}
+            sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' } }}
           >
             Add Note
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Delete Task Confirmation */}
+      <ConfirmDialog
+        open={deleteTaskDialog.open}
+        onClose={() => setDeleteTaskDialog({ open: false, taskId: null })}
+        onConfirm={handleConfirmDeleteTask}
+        title="Delete Task"
+        message="Are you sure you want to delete this task?"
+        confirmText="Delete"
+        confirmColor="error"
+        severity="warning"
+      />
+
+      {/* Delete Note Confirmation */}
+      <ConfirmDialog
+        open={deleteNoteDialog.open}
+        onClose={() => setDeleteNoteDialog({ open: false, noteId: null })}
+        onConfirm={handleConfirmDeleteNote}
+        title="Delete Note"
+        message="Are you sure you want to delete this note?"
+        confirmText="Delete"
+        confirmColor="error"
+        severity="warning"
+      />
+
+      {/* Convert Scope Confirmation */}
+      <ConfirmDialog
+        open={convertScopeDialog}
+        onClose={() => setConvertScopeDialog(false)}
+        onConfirm={() => doConvertScope(true)}
+        title="Convert Scope of Work"
+        message="Convert scope of work to editable tasks? This will archive the original text."
+        confirmText="Convert"
+        confirmColor="primary"
+        severity="info"
+      />
     </Paper>
   );
 }

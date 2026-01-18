@@ -18,7 +18,6 @@ import {
 } from "@mui/material";
 import {
   Add as AddIcon,
-  Refresh as RefreshIcon,
   Warning as WarningIcon,
   Edit as EditIcon,
   SwapHoriz as SwapHorizIcon,
@@ -279,31 +278,6 @@ const InventoryList = () => {
 
   const columns = [
     {
-      field: "_pinned",
-      headerName: "",
-      width: 40,
-      sortable: false,
-      renderCell: (params) => {
-        return params.row._pinned ? (
-          <Tooltip title="Pinned (selected)">
-            <PushPinIcon color="primary" fontSize="small" />
-          </Tooltip>
-        ) : null;
-      },
-    },
-    {
-      field: "commonly_used",
-      headerName: "",
-      width: 50,
-      renderCell: (params) => {
-        return params.row.commonly_used ? (
-          <Tooltip title="Commonly Used">
-            <StarIcon color="primary" fontSize="small" />
-          </Tooltip>
-        ) : null;
-      },
-    },
-    {
       field: "item_id",
       headerName: "Item ID",
       width: 100,
@@ -474,9 +448,6 @@ const InventoryList = () => {
           >
             Low Stock Only
           </Button>
-          <IconButton onClick={loadInventory} color="primary">
-            <RefreshIcon />
-          </IconButton>
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel>Sort By</InputLabel>
             <Select

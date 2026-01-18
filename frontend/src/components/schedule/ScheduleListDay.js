@@ -11,6 +11,7 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Paper,
 } from '@mui/material';
 import {
   MoreVert as MoreIcon,
@@ -41,6 +42,7 @@ function ScheduleListDay({ userRole }) {
     workOrders: allWorkOrders,
     loading,
     setDateRange,
+    refreshSchedule,
   } = useSchedule();
 
   const [localSelectedDate, setLocalSelectedDate] = useState(new Date());
@@ -138,8 +140,10 @@ function ScheduleListDay({ userRole }) {
   };
 
   // Handle success from ModifyCrewDialog
-  const handleModifyCrewSuccess = (result) => {
+  const handleModifyCrewSuccess = async (result) => {
     setSuccess(result.message);
+    // Ensure schedule data is refreshed to show updates
+    await refreshSchedule();
   };
 
   if (loading) {
@@ -151,27 +155,38 @@ function ScheduleListDay({ userRole }) {
   }
 
   return (
-    <Box sx={{ bgcolor: '#f5f5f5', minHeight: 'calc(100vh - 180px)' }}>
+    <Box sx={{ bgcolor: 'background.default', minHeight: 'calc(100vh - 180px)' }}>
       {/* Day Selector */}
-      <Box className="day-selector">
-        {weekDays.map((day, idx) => (
-          <Box
-            key={idx}
-            className={`day-item ${day.toDateString() === localSelectedDate.toDateString() ? 'selected' : ''} ${isToday(day) ? 'today' : ''}`}
-            onClick={() => handleDayClick(day)}
-          >
-            <Typography className="day-label">
-              {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'][idx]}
-            </Typography>
-            <Typography className="day-number">
-              {day.getDate()}
-            </Typography>
-            {isToday(day) && (
-              <DotIcon sx={{ fontSize: 8, mt: 0.5, color: 'inherit' }} />
-            )}
-          </Box>
-        ))}
-      </Box>
+      <Paper className="day-selector" sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
+        {weekDays.map((day, idx) => {
+          const isSelected = day.toDateString() === localSelectedDate.toDateString();
+          const isTodayDate = isToday(day);
+          return (
+            <Box
+              key={idx}
+              className={`day-item ${isSelected ? 'selected' : ''} ${isTodayDate ? 'today' : ''}`}
+              onClick={() => handleDayClick(day)}
+              sx={{
+                bgcolor: isSelected ? 'primary.dark' : 'transparent',
+                color: isSelected ? 'primary.contrastText' : 'text.primary',
+                '&:hover': {
+                  bgcolor: isSelected ? 'primary.dark' : 'action.hover',
+                },
+              }}
+            >
+              <Typography className="day-label" sx={{ color: 'inherit' }}>
+                {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'][idx]}
+              </Typography>
+              <Typography className="day-number" sx={{ color: isTodayDate && !isSelected ? 'primary.main' : 'inherit' }}>
+                {day.getDate()}
+              </Typography>
+              {isTodayDate && (
+                <DotIcon sx={{ fontSize: 8, mt: 0.5, color: 'inherit' }} />
+              )}
+            </Box>
+          );
+        })}
+      </Paper>
 
       {/* Jobs List */}
       <Box sx={{ px: 2, py: 2 }}>
@@ -199,10 +214,11 @@ function ScheduleListDay({ userRole }) {
             const workers = getAssignedWorkers(workOrder.assigned_to, employees);
 
             return (
-              <Box
+              <Paper
                 key={workOrder.id}
                 className="job-card"
                 onClick={() => handleJobClick(workOrder.id)}
+                sx={{ bgcolor: 'background.paper', cursor: 'pointer' }}
               >
                 <Box
                   className={`job-card-border status-${workOrder.status}`}
@@ -210,7 +226,7 @@ function ScheduleListDay({ userRole }) {
                 />
                 {/* Time */}
                 <Box sx={{ mb: 1 }}>
-                  <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#666' }}>
+                  <Typography sx={{ fontSize: 14, fontWeight: 600, color: 'text.secondary' }}>
                     {formatTimeRange(workOrder)}
                   </Typography>
                 </Box>
@@ -284,7 +300,7 @@ function ScheduleListDay({ userRole }) {
                 >
                   <MoreIcon />
                 </IconButton>
-              </Box>
+              </Paper>
             );
           })
         )}
@@ -298,9 +314,9 @@ function ScheduleListDay({ userRole }) {
           position: 'fixed',
           bottom: 24,
           right: 24,
-          bgcolor: '#4caf50',
+          bgcolor: 'success.main',
           '&:hover': {
-            bgcolor: '#66bb6a',
+            bgcolor: 'success.light',
           },
         }}
         onClick={handleCreateNew}

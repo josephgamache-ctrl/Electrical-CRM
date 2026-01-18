@@ -191,7 +191,7 @@ function ContradictionsReport() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppHeader title="Schedule Contradictions" />
       <Container maxWidth="xl" sx={{ py: 4 }}>
         <Paper elevation={3} sx={{ p: 3 }}>
@@ -277,7 +277,7 @@ function ContradictionsReport() {
           </Grid>
 
           {/* Filters */}
-          <Paper sx={{ p: 2, mb: 3, bgcolor: '#fafafa' }}>
+          <Paper sx={{ p: 2, mb: 3, bgcolor: 'background.paper' }}>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
               <FilterIcon color="action" />
               <TextField
@@ -351,7 +351,7 @@ function ContradictionsReport() {
                   {contradictions.map((c) => (
                     <TableRow
                       key={c.id}
-                      sx={{ bgcolor: c.resolved ? '#f5f5f5' : 'inherit' }}
+                      sx={{ bgcolor: c.resolved ? 'action.disabledBackground' : 'inherit' }}
                     >
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -433,7 +433,7 @@ function ContradictionsReport() {
           <DialogContent>
             {selectedContradiction && (
               <>
-                <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1, mb: 2 }}>
+                <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1, mb: 2 }}>
                   <Typography variant="body2">
                     <strong>Employee:</strong> {selectedContradiction.employee_name}
                   </Typography>

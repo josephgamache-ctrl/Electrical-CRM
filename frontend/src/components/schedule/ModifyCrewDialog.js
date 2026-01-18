@@ -91,6 +91,9 @@ function ModifyCrewDialog({
   const [unavailabilityConflicts, setUnavailabilityConflicts] = useState([]); // PTO/unavailability (blocking)
   const [checkingConflicts, setCheckingConflicts] = useState(false);
 
+  // Employee select dropdown state
+  const [employeeSelectOpen, setEmployeeSelectOpen] = useState(false);
+
   // Get current crew usernames - check both workOrder.assigned_to AND scheduleEntries
   const currentCrew = useMemo(() => {
     const crewSet = new Set();
@@ -355,8 +358,8 @@ function ModifyCrewDialog({
             });
           }
 
-          if (data.schedule_conflicts && data.schedule_conflicts.length > 0) {
-            data.schedule_conflicts.forEach(conflict => {
+          if (data.job_conflicts && data.job_conflicts.length > 0) {
+            data.job_conflicts.forEach(conflict => {
               scheduleConflicts.push({
                 ...conflict,
                 employee_username: emp.username,
@@ -548,6 +551,8 @@ function ModifyCrewDialog({
           });
 
           // Add employee to new dates
+          // Build employee_hours dict for proper backend processing
+          const employeeHours = { [editingEmployee.username]: hours };
           await fetch(`${API_BASE_URL}/work-orders/${workOrder.id}/crew`, {
             method: 'PATCH',
             headers: {
@@ -560,7 +565,7 @@ function ModifyCrewDialog({
               dates: datesToAdd,
               start_time: startTime,
               end_time: endTime,
-              scheduled_hours: hours,
+              employee_hours: employeeHours,
             }),
           });
         }
@@ -624,6 +629,11 @@ function ModifyCrewDialog({
         });
 
         // Add selected employees to crew
+        // Build employee_hours dict for proper backend processing
+        const employeeHours = {};
+        selectedEmployees.forEach(e => {
+          employeeHours[e.username] = hours;
+        });
         const response = await fetch(`${API_BASE_URL}/work-orders/${workOrder.id}/crew`, {
           method: 'PATCH',
           headers: {
@@ -636,7 +646,7 @@ function ModifyCrewDialog({
             dates: dates,
             start_time: startTime,
             end_time: endTime,
-            scheduled_hours: hours,
+            employee_hours: employeeHours,
           }),
         });
 
@@ -677,7 +687,7 @@ function ModifyCrewDialog({
       fullWidth
       fullScreen={isMobile}
     >
-      <DialogTitle sx={{ bgcolor: editMode ? '#ff9800' : '#1976d2', color: 'white', pr: 6 }}>
+      <DialogTitle sx={{ bgcolor: 'secondary.dark', color: 'secondary.contrastText', pr: 6 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {editMode ? <EditIcon /> : <GroupAddIcon />}
           <Typography variant="h6">
@@ -704,7 +714,7 @@ function ModifyCrewDialog({
           )}
 
           {/* Job Info */}
-          <Paper sx={{ p: 2, bgcolor: '#f5f5f5', position: 'relative' }}>
+          <Paper sx={{ p: 2, bgcolor: 'background.default', position: 'relative' }}>
             {/* View Job Details Link - Top Right Corner */}
             <Button
               size="small"
@@ -751,7 +761,7 @@ function ModifyCrewDialog({
 
             {/* Current crew - clickable to edit their schedule */}
             {currentCrew.length > 0 && (
-              <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid #e0e0e0' }}>
+              <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderTopColor: 'divider' }}>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                   Currently assigned (click to edit schedule):
                 </Typography>
@@ -808,7 +818,7 @@ function ModifyCrewDialog({
           )}
 
           {/* Date Selection */}
-          <Box sx={{ p: 2, bgcolor: '#e3f2fd', borderRadius: 1 }}>
+          <Box sx={{ p: 2, bgcolor: 'secondary.light', borderRadius: 1 }}>
             <Typography variant="subtitle2" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
               <DateRangeIcon sx={{ fontSize: 18 }} />
               Schedule Dates
@@ -939,17 +949,17 @@ function ModifyCrewDialog({
                               textAlign: 'center',
                               borderRadius: 1,
                               cursor: 'pointer',
-                              bgcolor: isSelected ? 'primary.main' : 'white',
-                              color: isSelected ? 'white' : 'text.primary',
+                              bgcolor: isSelected ? 'primary.main' : 'background.paper',
+                              color: isSelected ? 'primary.contrastText' : 'text.primary',
                               border: '2px solid',
                               borderColor: isSelected
                                 ? 'primary.main'
                                 : isOriginal
-                                  ? '#ff9800'  // Orange border for originally scheduled dates
-                                  : '#e0e0e0',
+                                  ? 'warning.main'  // Orange border for originally scheduled dates
+                                  : 'divider',
                               position: 'relative',
                               '&:hover': {
-                                bgcolor: isSelected ? 'primary.dark' : '#f5f5f5',
+                                bgcolor: isSelected ? 'primary.dark' : 'action.hover',
                               },
                             }}
                           >
@@ -970,7 +980,7 @@ function ModifyCrewDialog({
                                   width: 6,
                                   height: 6,
                                   borderRadius: '50%',
-                                  bgcolor: isSelected ? 'white' : '#ff9800',
+                                  bgcolor: isSelected ? 'primary.contrastText' : 'warning.main',
                                 }}
                               />
                             )}
@@ -1013,6 +1023,9 @@ function ModifyCrewDialog({
               <InputLabel>Select Workers to Add</InputLabel>
               <Select
                 multiple
+                open={employeeSelectOpen}
+                onOpen={() => setEmployeeSelectOpen(true)}
+                onClose={() => setEmployeeSelectOpen(false)}
                 value={selectedEmployees.map(e => e.username)}
                 onChange={(e) => {
                   const usernames = e.target.value;
@@ -1034,7 +1047,40 @@ function ModifyCrewDialog({
                     })}
                   </Box>
                 )}
+                MenuProps={{
+                  PaperProps: {
+                    sx: { maxHeight: 350 }
+                  },
+                  autoFocus: false,
+                }}
               >
+                {/* Done button at the top of the dropdown */}
+                <Box sx={{
+                  position: 'sticky',
+                  top: 0,
+                  bgcolor: 'background.paper',
+                  zIndex: 1,
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                  p: 1,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {selectedEmployees.length} selected
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEmployeeSelectOpen(false);
+                    }}
+                  >
+                    Done
+                  </Button>
+                </Box>
                 {availableEmployees.map((emp) => (
                   <MenuItem key={emp.username} value={emp.username}>
                     <Checkbox checked={selectedEmployees.some(e => e.username === emp.username)} />
@@ -1064,7 +1110,7 @@ function ModifyCrewDialog({
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ p: 2, borderTop: '1px solid #eee' }}>
+      <DialogActions sx={{ p: 2, borderTop: 1, borderTopColor: 'divider' }}>
         <Button onClick={onClose} disabled={loading || checkingConflicts}>Cancel</Button>
         {editMode ? (
           <Button
@@ -1107,8 +1153,8 @@ function ModifyCrewDialog({
         fullWidth
       >
         <DialogTitle sx={{
-          bgcolor: unavailabilityConflicts.length > 0 ? '#d32f2f' : '#ff9800',
-          color: 'white',
+          bgcolor: unavailabilityConflicts.length > 0 ? 'error.main' : 'warning.main',
+          color: unavailabilityConflicts.length > 0 ? 'error.contrastText' : 'warning.contrastText',
           display: 'flex',
           alignItems: 'center',
           gap: 1
@@ -1131,7 +1177,7 @@ function ModifyCrewDialog({
                 Approved Time Off:
               </Typography>
 
-              <List dense sx={{ bgcolor: '#ffebee', borderRadius: 1, mb: 2 }}>
+              <List dense sx={{ bgcolor: 'error.light', borderRadius: 1, mb: 2 }}>
                 {unavailabilityConflicts.map((conflict, index) => (
                   <React.Fragment key={`pto-${conflict.employee_username}-${conflict.date}-${index}`}>
                     {index > 0 && <Divider />}
@@ -1192,7 +1238,7 @@ function ModifyCrewDialog({
                 Conflicting Assignments:
               </Typography>
 
-              <List dense sx={{ bgcolor: '#f5f5f5', borderRadius: 1 }}>
+              <List dense sx={{ bgcolor: 'background.default', borderRadius: 1 }}>
                 {conflicts.map((conflict, index) => (
                   <React.Fragment key={`sched-${conflict.employee_username}-${conflict.date}-${index}`}>
                     {index > 0 && <Divider />}
@@ -1245,7 +1291,7 @@ function ModifyCrewDialog({
             </Alert>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: '1px solid #eee' }}>
+        <DialogActions sx={{ p: 2, borderTop: 1, borderTopColor: 'divider' }}>
           <Button onClick={() => setConflictDialogOpen(false)}>
             {unavailabilityConflicts.length > 0 ? 'Go Back & Select Different Dates' : 'Cancel'}
           </Button>

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- White Background -->
+  <rect width="512" height="512" fill="#ffffff"/>
+
+  <!-- Compass Rose - styled like Kris Johnson Electrical (blue on white) -->
+  <g transform="translate(256, 256)" stroke="#1976d2" stroke-width="2" fill="none">
+    <!-- Outer circle -->
+    <circle r="210" stroke-width="4"/>
+
+    <!-- Main compass points (N, S, E, W) - elongated diamonds -->
+    <!-- North -->
+    <polygon points="0,-200 15,-80 0,-60 -15,-80" fill="#1976d2" stroke="#1976d2"/>
+    <!-- South -->
+    <polygon points="0,200 15,80 0,60 -15,80" fill="#1976d2" stroke="#1976d2"/>
+    <!-- East -->
+    <polygon points="200,0 80,15 60,0 80,-15" fill="#1976d2" stroke="#1976d2"/>
+    <!-- West -->
+    <polygon points="-200,0 -80,15 -60,0 -80,-15" fill="#1976d2" stroke="#1976d2"/>
+
+    <!-- Intermediate points (NE, SE, SW, NW) - shorter points -->
+    <!-- Northeast -->
+    <polygon points="141,-141 60,-45 50,-50 45,-60" fill="#1976d2" stroke="#1976d2"/>
+    <!-- Southeast -->
+    <polygon points="141,141 60,45 50,50 45,60" fill="#1976d2" stroke="#1976d2"/>
+    <!-- Southwest -->
+    <polygon points="-141,141 -60,45 -50,50 -45,60" fill="#1976d2" stroke="#1976d2"/>
+    <!-- Northwest -->
+    <polygon points="-141,-141 -60,-45 -50,-50 -45,-60" fill="#1976d2" stroke="#1976d2"/>
+  </g>
+
+  <!-- White circle background for KJ letters -->
+  <circle cx="256" cy="256" r="75" fill="#ffffff"/>
+
+  <!-- KJ Letters overlaid on compass center (blue text) -->
+  <text x="256" y="282"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="90"
+        font-weight="bold"
+        fill="#1976d2"
+        text-anchor="middle"
+        style="letter-spacing: -3px;">KJ</text>
+</svg>

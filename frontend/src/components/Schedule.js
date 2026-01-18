@@ -203,7 +203,7 @@ function Schedule() {
 
   return (
     <ScheduleProvider>
-      <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
         {/* Header */}
         <AppHeader title={getTabTitle()} />
 

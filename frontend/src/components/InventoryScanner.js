@@ -68,23 +68,17 @@ import {
   searchInventory,
   createInventoryItem,
 } from '../api';
-import { BrowserMultiFormatReader } from '@zxing/library';
 import logger from '../utils/logger';
+import BarcodeScanner from './BarcodeScanner';
 function InventoryScanner() {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const barcodeInputRef = useRef(null);
-  const videoRef = useRef(null);
-  const codeReaderRef = useRef(null);
 
   // Scanner mode state
   const [scannerActive, setScannerActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
-  const [availableCameras, setAvailableCameras] = useState([]);
-  const [selectedCamera, setSelectedCamera] = useState('');
-  const [useNativeCamera, setUseNativeCamera] = useState(false);
-  const fileInputRef = useRef(null);
 
   // Barcode/search state
   const [barcodeInput, setBarcodeInput] = useState('');
@@ -123,6 +117,8 @@ function InventoryScanner() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchingItems, setSearchingItems] = useState(false);
   const [selectedItemToLink, setSelectedItemToLink] = useState(null);
+  const [searchDebugInfo, setSearchDebugInfo] = useState('');
+  const [hasSearched, setHasSearched] = useState(false);
   const [createNewOpen, setCreateNewOpen] = useState(false);
   const [newItemData, setNewItemData] = useState({
     item_name: '',
@@ -133,242 +129,28 @@ function InventoryScanner() {
     location: '',
   });
 
-  // Initialize barcode reader - just create the reader, don't start camera yet
+  // On mobile, auto-start scanner
   useEffect(() => {
-    codeReaderRef.current = new BrowserMultiFormatReader();
-    logger.log('BrowserMultiFormatReader initialized');
-
-    // On mobile, auto-start camera after component mounts
     if (isMobile) {
-      // Small delay to ensure video element is ready
-      const timer = setTimeout(() => {
-        startScannerDirect();
-      }, 300);
-      return () => clearTimeout(timer);
+      setScannerActive(true);
     }
-
-    return () => {
-      if (codeReaderRef.current) {
-        codeReaderRef.current.reset();
-      }
-    };
   }, [isMobile]);
 
-  // Direct camera start - uses constraints instead of device ID for better compatibility
-  const startScannerDirect = async () => {
-    setCameraError(null);
-    setScannerActive(true);
-
-    // Wait for video element
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    try {
-      if (!codeReaderRef.current) {
-        codeReaderRef.current = new BrowserMultiFormatReader();
-      }
-
-      if (!videoRef.current) {
-        logger.error('Video element not found');
-        setCameraError('Camera view not ready. Please try again.');
-        setScannerActive(false);
-        return;
-      }
-
-      logger.log('Starting scanner with back camera preference...');
-
-      // Use constraints with facingMode instead of deviceId for better mobile support
-      const constraints = {
-        video: {
-          facingMode: { ideal: 'environment' }, // Prefer back camera
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      };
-
-      await codeReaderRef.current.decodeFromConstraints(
-        constraints,
-        videoRef.current,
-        (result, error) => {
-          if (result) {
-            const barcode = result.getText();
-            logger.log('Barcode scanned:', barcode);
-            handleBarcodeScanned(barcode);
-          }
-        }
-      );
-
-      logger.log('Scanner started successfully');
-
-      // Get available cameras for switch button (after permission granted)
-      try {
-        const devices = await codeReaderRef.current.listVideoInputDevices();
-        logger.log('Available cameras:', devices);
-        setAvailableCameras(devices);
-        if (devices.length > 0) {
-          setSelectedCamera(devices[0].deviceId);
-        }
-      } catch (e) {
-        logger.log('Could not list cameras:', e);
-      }
-
-    } catch (err) {
-      logger.error('Scanner error:', err);
-      setScannerActive(false);
-
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setCameraError('Camera access denied. Please allow camera permission and try again.');
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        setCameraError('No camera found on this device.');
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        setCameraError('Camera is in use by another app. Please close other camera apps and try again.');
-      } else if (err.name === 'OverconstrainedError') {
-        setCameraError('Camera does not support the required settings. Trying again...');
-        // Try again with simpler constraints
-        setTimeout(() => startScannerSimple(), 500);
-      } else {
-        setCameraError(`Camera error: ${err.message || err.name || 'Unknown error'}`);
-      }
-    }
-  };
-
-  // Fallback simple start for older devices
-  const startScannerSimple = async () => {
-    try {
-      if (!videoRef.current) return;
-
-      await codeReaderRef.current.decodeFromConstraints(
-        { video: true },
-        videoRef.current,
-        (result, error) => {
-          if (result) {
-            handleBarcodeScanned(result.getText());
-          }
-        }
-      );
-      setScannerActive(true);
-      setCameraError(null);
-    } catch (err) {
-      logger.error('Simple scanner also failed:', err);
-      setCameraError('Could not start camera. Please check permissions in browser settings.');
-      setScannerActive(false);
-    }
-  };
-
-  const startScannerWithDevice = async (deviceId) => {
-    setCameraError(null);
-    setScannerActive(true);
-
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    try {
-      if (!codeReaderRef.current) {
-        codeReaderRef.current = new BrowserMultiFormatReader();
-      }
-
-      if (!videoRef.current) {
-        logger.error('Video element not found');
-        setCameraError('Camera view not ready. Please try again.');
-        setScannerActive(false);
-        return;
-      }
-
-      logger.log('Starting scanner with device:', deviceId);
-
-      await codeReaderRef.current.decodeFromVideoDevice(
-        deviceId || undefined,
-        videoRef.current,
-        (result, error) => {
-          if (result) {
-            const barcode = result.getText();
-            logger.log('Barcode scanned:', barcode);
-            handleBarcodeScanned(barcode);
-          }
-        }
-      );
-      logger.log('Scanner started successfully');
-    } catch (err) {
-      logger.error('Scanner error:', err);
-      setCameraError('Could not start camera. Please check permissions and try again.');
-      setScannerActive(false);
-    }
-  };
-
-  const startScanner = async () => {
-    // Use direct method for better compatibility
-    await startScannerDirect();
-  };
-
-  // Handle image capture from native camera (works without HTTPS)
-  const handleImageCapture = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setSearching(true);
-    setCameraError(null);
-
-    try {
-      if (!codeReaderRef.current) {
-        codeReaderRef.current = new BrowserMultiFormatReader();
-      }
-
-      // Create image URL from file
-      const imageUrl = URL.createObjectURL(file);
-
-      // Decode barcode from image
-      const result = await codeReaderRef.current.decodeFromImageUrl(imageUrl);
-
-      // Clean up
-      URL.revokeObjectURL(imageUrl);
-
-      if (result) {
-        const barcode = result.getText();
-        logger.log('Barcode from image:', barcode);
-        handleBarcodeScanned(barcode);
-      }
-    } catch (err) {
-      logger.error('Could not read barcode from image:', err);
-      setCameraError('No barcode found in image. Please try again with better lighting or positioning.');
-      setSearching(false);
-    }
-
-    // Reset file input so same file can be selected again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const openNativeCamera = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const stopScanner = () => {
-    if (codeReaderRef.current) {
-      codeReaderRef.current.reset();
-    }
-    setScannerActive(false);
-  };
-
-  const switchCamera = () => {
-    const currentIndex = availableCameras.findIndex(c => c.deviceId === selectedCamera);
-    const nextIndex = (currentIndex + 1) % availableCameras.length;
-    setSelectedCamera(availableCameras[nextIndex].deviceId);
-
-    // Restart scanner with new camera
-    if (scannerActive) {
-      stopScanner();
-      setTimeout(() => startScanner(), 100);
-    }
-  };
-
-  // Handle barcode scanned from camera
+  // Handle barcode scanned from BarcodeScanner component
   const handleBarcodeScanned = async (barcode) => {
-    // Stop scanner temporarily to prevent multiple scans
-    stopScanner();
-
+    // BarcodeScanner pauses on scan, so just process the result
     setBarcodeInput(barcode);
     await searchForItem(barcode);
+  };
+
+  // Start scanner (for buttons)
+  const startScanner = () => {
+    setScannerActive(true);
+  };
+
+  // Stop scanner
+  const stopScanner = () => {
+    setScannerActive(false);
   };
 
   // Search for item by barcode/UPC or item ID
@@ -509,6 +291,9 @@ function InventoryScanner() {
 
       setAdjustCountOpen(false);
       showSnackbar(`Stock ${adjustQuantity > 0 ? 'increased' : 'decreased'} by ${Math.abs(adjustQuantity)}`, 'success');
+
+      // Auto-scan next item after brief delay
+      setTimeout(() => scanAnother(), 1500);
     } catch (err) {
       showSnackbar(err.message || 'Failed to adjust stock', 'error');
     } finally {
@@ -571,6 +356,9 @@ function InventoryScanner() {
 
       setChangeLocationOpen(false);
       showSnackbar('Location updated successfully', 'success');
+
+      // Auto-scan next item after brief delay
+      setTimeout(() => scanAnother(), 1500);
     } catch (err) {
       showSnackbar(err.message || 'Failed to update location', 'error');
     } finally {
@@ -593,6 +381,9 @@ function InventoryScanner() {
 
       setAddToOrderOpen(false);
       showSnackbar(`Added ${orderQuantity} x ${foundItem.item_id} to work order`, 'success');
+
+      // Auto-scan next item after brief delay
+      setTimeout(() => scanAnother(), 1500);
     } catch (err) {
       showSnackbar(err.message || 'Failed to add to work order', 'error');
     } finally {
@@ -635,6 +426,8 @@ function InventoryScanner() {
     setSearchQuery('');
     setSearchResults([]);
     setSelectedItemToLink(null);
+    setSearchDebugInfo('Type a search term and tap Search');
+    setHasSearched(false);
     setLinkToExistingOpen(true);
   };
 
@@ -652,15 +445,43 @@ function InventoryScanner() {
   };
 
   const handleSearchExistingItems = async () => {
-    if (!searchQuery.trim()) return;
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) {
+      setSearchDebugInfo('Enter a search term');
+      return;
+    }
 
+    setSearchDebugInfo(`Searching for "${trimmedQuery}"...`);
     setSearchingItems(true);
+    setHasSearched(true);
+    setSearchResults([]); // Clear previous results
+
     try {
-      const results = await searchInventory(searchQuery.trim());
-      // Backend returns { inventory: [...] }
-      setSearchResults(results.inventory || results.items || results || []);
+      // Use the dedicated search endpoint - no pagination limits
+      // Searches: description, category, subcategory, brand, sku, upc, item_id
+      const data = await searchInventory(trimmedQuery);
+
+      // Debug: show what we got back
+      if (!data) {
+        setSearchDebugInfo(`Error: No response from server`);
+        setSearchResults([]);
+        return;
+      }
+
+      const items = data.inventory || data.items || [];
+
+      if (!Array.isArray(items)) {
+        setSearchDebugInfo(`Error: Invalid response format`);
+        setSearchResults([]);
+        return;
+      }
+
+      setSearchResults(items.slice(0, 50)); // Limit display to 50 for performance
+      setSearchDebugInfo(`Found ${items.length} items for "${trimmedQuery}"`);
     } catch (err) {
-      showSnackbar('Error searching items', 'error');
+      logger.error('[Scanner] Search error:', err);
+      setSearchDebugInfo(`Error: ${err.message || 'Unknown error'}`);
+      showSnackbar(`Search failed: ${err.message}`, 'error');
       setSearchResults([]);
     } finally {
       setSearchingItems(false);
@@ -673,7 +494,7 @@ function InventoryScanner() {
     setSaving(true);
     try {
       await updateInventoryItem(selectedItemToLink.id, { upc: unknownBarcode });
-      showSnackbar(`Barcode linked to ${selectedItemToLink.item_name || selectedItemToLink.description}`, 'success');
+      showSnackbar(`Barcode linked to ${selectedItemToLink.description || selectedItemToLink.item_name}`, 'success');
       setLinkToExistingOpen(false);
 
       // Fetch and display the updated item
@@ -681,6 +502,9 @@ function InventoryScanner() {
       setFoundItem(updated.item || updated);
       addToHistory(updated.item || updated);
       setUnknownBarcode(null);
+
+      // Auto-scan next item after brief delay
+      setTimeout(() => scanAnother(), 1500);
     } catch (err) {
       showSnackbar(err.message || 'Failed to link barcode', 'error');
     } finally {
@@ -696,26 +520,584 @@ function InventoryScanner() {
 
     setSaving(true);
     try {
+      // Generate a unique item_id using timestamp + random suffix
+      const timestamp = Date.now().toString(36).toUpperCase();
+      const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+      const generatedItemId = `NEW-${timestamp}-${randomSuffix}`;
+
+      // Description is the primary field - use item_name if provided, otherwise use description
+      const itemDescription = newItemData.item_name || newItemData.description;
+
+      // Build item data with sensible defaults for required fields
+      // This allows users to create items quickly with just a title
       const itemData = {
-        ...newItemData,
-        upc: unknownBarcode,
-        item_name: newItemData.item_name || newItemData.description,
+        // Required identification fields
+        item_id: generatedItemId,
+        brand: 'Unknown', // Default brand - can be updated later
+        description: itemDescription,
+
+        // Category - use provided or default
+        category: newItemData.category || 'Uncategorized',
+
+        // Pricing - default to $0 for quick add, can be updated later
+        cost: 0,
+        sell_price: 0,
+
+        // Inventory management
+        qty: newItemData.qty || 0,
+        min_stock: 0, // No minimum stock alert by default
+        location: newItemData.location || 'Warehouse', // Default location
+
+        // Optional fields
+        sku: newItemData.sku || null,
+        upc: unknownBarcode, // Save the scanned barcode!
+        subcategory: null,
       };
 
-      const created = await createInventoryItem(itemData);
-      showSnackbar(`New item created: ${created.item_name || created.description}`, 'success');
+      const createResult = await createInventoryItem(itemData);
+      showSnackbar(`New item created: ${itemData.description}`, 'success');
       setCreateNewOpen(false);
 
-      // Display the new item
-      setFoundItem(created);
-      addToHistory(created);
+      // Fetch the full item data to display
+      try {
+        const fullItem = await fetchInventoryItem(createResult.id);
+        const item = fullItem.item || fullItem;
+        setFoundItem(item);
+        addToHistory(item);
+      } catch (fetchErr) {
+        // If fetch fails, create a minimal item object for display
+        setFoundItem({
+          id: createResult.id,
+          item_id: createResult.item_id,
+          description: itemData.description,
+          upc: itemData.upc,
+          qty: itemData.qty || 0,
+          location: itemData.location || 'Warehouse',
+          brand: itemData.brand || 'Unknown',
+        });
+      }
       setUnknownBarcode(null);
+
+      // Stay on the Item Found screen so user can set count/location
+      // Don't auto-scan - let user manually tap "Scan Another" when ready
     } catch (err) {
       showSnackbar(err.message || 'Failed to create item', 'error');
     } finally {
       setSaving(false);
     }
   };
+
+  // Render dialogs (shared between mobile and desktop) - MUST be defined before any returns
+  const renderDialogs = () => (
+    <>
+      {/* Adjust Count Dialog */}
+      <Dialog open={adjustCountOpen} onClose={() => setAdjustCountOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Adjust Stock Count</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              {foundItem?.item_id} - {foundItem?.description?.substring(0, 50)}...
+            </Typography>
+            <Typography variant="h6" gutterBottom>
+              Current: {foundItem?.qty || 0}
+            </Typography>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, my: 3 }}>
+              <IconButton
+                color="error"
+                size="large"
+                onClick={() => setAdjustQuantity(prev => prev - 1)}
+                sx={{ border: '2px solid', borderColor: 'error.main', width: 56, height: 56 }}
+              >
+                <RemoveIcon />
+              </IconButton>
+              <TextField
+                type="number"
+                value={adjustQuantity}
+                onChange={(e) => setAdjustQuantity(parseInt(e.target.value) || 0)}
+                sx={{ width: 80 }}
+                inputProps={{ style: { textAlign: 'center', fontSize: '1.5rem' } }}
+              />
+              <IconButton
+                color="success"
+                size="large"
+                onClick={() => setAdjustQuantity(prev => prev + 1)}
+                sx={{ border: '2px solid', borderColor: 'success.main', width: 56, height: 56 }}
+              >
+                <AddIcon />
+              </IconButton>
+            </Box>
+
+            <Typography variant="h6" sx={{ textAlign: 'center', mb: 2 }}>
+              New Stock: <strong>{(foundItem?.qty || 0) + adjustQuantity}</strong>
+            </Typography>
+
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center', mb: 2 }}>
+              <Chip label="-10" onClick={() => setAdjustQuantity(-10)} clickable />
+              <Chip label="-5" onClick={() => setAdjustQuantity(-5)} clickable />
+              <Chip label="+1" onClick={() => setAdjustQuantity(1)} clickable color="primary" />
+              <Chip label="+5" onClick={() => setAdjustQuantity(5)} clickable color="primary" />
+              <Chip label="+10" onClick={() => setAdjustQuantity(10)} clickable color="primary" />
+            </Box>
+
+            <TextField
+              fullWidth
+              label="Reason (optional)"
+              value={adjustReason}
+              onChange={(e) => setAdjustReason(e.target.value)}
+              placeholder="e.g., Physical count..."
+              size="small"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAdjustCountOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={saveAdjustCount}
+            disabled={saving || adjustQuantity === 0}
+            color={adjustQuantity > 0 ? 'success' : 'error'}
+          >
+            {saving ? <CircularProgress size={24} /> : (adjustQuantity > 0 ? `Add ${adjustQuantity}` : `Remove ${Math.abs(adjustQuantity)}`)}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Set Count Dialog - For inventory counting */}
+      <Dialog open={setCountOpen} onClose={() => setSetCountOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ bgcolor: 'secondary.dark', color: 'secondary.contrastText' }}>
+          Set Physical Count
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              {foundItem?.item_id} - {foundItem?.description?.substring(0, 50)}...
+            </Typography>
+
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', my: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">System Count</Typography>
+                <Typography variant="h5">{foundItem?.qty || 0}</Typography>
+              </Box>
+              <Typography variant="h4" color="text.secondary">→</Typography>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Physical Count</Typography>
+                <Typography variant="h5" color={physicalCount !== (foundItem?.qty || 0) ? 'warning.main' : 'success.main'}>
+                  {physicalCount}
+                </Typography>
+              </Box>
+            </Box>
+
+            <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+              Enter what you counted:
+            </Typography>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, my: 2 }}>
+              <IconButton
+                color="error"
+                size="large"
+                onClick={() => setPhysicalCount(prev => Math.max(0, prev - 1))}
+                sx={{ border: '2px solid', borderColor: 'error.main', width: 56, height: 56 }}
+              >
+                <RemoveIcon />
+              </IconButton>
+              <TextField
+                type="number"
+                value={physicalCount}
+                onChange={(e) => setPhysicalCount(Math.max(0, parseInt(e.target.value) || 0))}
+                sx={{ width: 100 }}
+                inputProps={{ style: { textAlign: 'center', fontSize: '2rem' }, min: 0 }}
+                autoFocus
+              />
+              <IconButton
+                color="success"
+                size="large"
+                onClick={() => setPhysicalCount(prev => prev + 1)}
+                sx={{ border: '2px solid', borderColor: 'success.main', width: 56, height: 56 }}
+              >
+                <AddIcon />
+              </IconButton>
+            </Box>
+
+            {physicalCount !== (foundItem?.qty || 0) && (
+              <Alert
+                severity={physicalCount > (foundItem?.qty || 0) ? 'info' : 'warning'}
+                sx={{ mb: 2 }}
+              >
+                {physicalCount > (foundItem?.qty || 0)
+                  ? `Will add ${physicalCount - (foundItem?.qty || 0)} to stock`
+                  : `Will remove ${(foundItem?.qty || 0) - physicalCount} from stock`
+                }
+              </Alert>
+            )}
+
+            <TextField
+              fullWidth
+              label="Note (optional)"
+              value={adjustReason}
+              onChange={(e) => setAdjustReason(e.target.value)}
+              placeholder="e.g., Counted shelf A-3..."
+              size="small"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSetCountOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={saveSetCount}
+            disabled={saving}
+            color={physicalCount === (foundItem?.qty || 0) ? 'success' : 'warning'}
+          >
+            {saving ? <CircularProgress size={24} /> : (
+              physicalCount === (foundItem?.qty || 0) ? 'Confirm Match' : `Update to ${physicalCount}`
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Change Location Dialog */}
+      <Dialog open={changeLocationOpen} onClose={() => setChangeLocationOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Change Location</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              label="Location"
+              value={newLocation}
+              onChange={(e) => setNewLocation(e.target.value)}
+              placeholder="e.g., Warehouse, Truck 1..."
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Bin Location"
+              value={newBinLocation}
+              onChange={(e) => setNewBinLocation(e.target.value)}
+              placeholder="e.g., Shelf 3, Bin A-12..."
+              sx={{ mb: 2 }}
+            />
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Chip label="Warehouse" onClick={() => setNewLocation('Warehouse')} clickable size="small" />
+              <Chip label="Shop" onClick={() => setNewLocation('Shop')} clickable size="small" />
+              <Chip label="Truck 1" onClick={() => setNewLocation('Truck 1')} clickable size="small" />
+              <Chip label="Truck 2" onClick={() => setNewLocation('Truck 2')} clickable size="small" />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setChangeLocationOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={saveChangeLocation} disabled={saving}>
+            {saving ? <CircularProgress size={24} /> : 'Update'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add to Work Order Dialog */}
+      <Dialog open={addToOrderOpen} onClose={() => setAddToOrderOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add to Work Order</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Select Work Order</InputLabel>
+              <Select
+                value={selectedWorkOrder}
+                onChange={(e) => setSelectedWorkOrder(e.target.value)}
+                label="Select Work Order"
+              >
+                {workOrders.length === 0 ? (
+                  <MenuItem disabled>No active work orders</MenuItem>
+                ) : (
+                  workOrders.map((wo) => (
+                    <MenuItem key={wo.id} value={wo.id}>
+                      {wo.work_order_number} - {wo.customer_name}
+                    </MenuItem>
+                  ))
+                )}
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              type="number"
+              label="Quantity"
+              value={orderQuantity}
+              onChange={(e) => setOrderQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+              inputProps={{ min: 1 }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddToOrderOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={saveAddToOrder}
+            disabled={saving || !selectedWorkOrder}
+          >
+            {saving ? <CircularProgress size={24} /> : 'Add to Order'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Unknown Barcode Dialog */}
+      <Dialog
+        open={unknownBarcodeDialogOpen}
+        onClose={handleUnknownBarcodeClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
+          <WarningIcon color="warning" sx={{ fontSize: 48, mb: 1 }} />
+          <Typography variant="h6">Unknown Barcode</Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ textAlign: 'center', py: 2 }}>
+            <Paper sx={{ p: 2, bgcolor: 'background.default', mb: 3 }}>
+              <Typography variant="caption" color="text.secondary">Scanned Barcode:</Typography>
+              <Typography variant="h5" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                {unknownBarcode}
+              </Typography>
+            </Paper>
+
+            <Typography variant="body1" color="text.secondary" gutterBottom>
+              This barcode is not in your inventory. What would you like to do?
+            </Typography>
+
+            <Grid container spacing={2} sx={{ mt: 2 }}>
+              <Grid item xs={12}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  startIcon={<SearchIcon />}
+                  onClick={handleLinkToExisting}
+                  sx={{ py: 2 }}
+                >
+                  Link to Existing Item
+                </Button>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  Search for an item and add this barcode to it
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="success"
+                  size="large"
+                  startIcon={<AddIcon />}
+                  onClick={handleCreateNew}
+                  sx={{ py: 2 }}
+                >
+                  Create New Item
+                </Button>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  Add a new inventory item with this barcode
+                </Typography>
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleUnknownBarcodeClose} color="inherit">
+            Cancel & Scan Again
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Link to Existing Item Dialog */}
+      <Dialog
+        open={linkToExistingOpen}
+        onClose={() => setLinkToExistingOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Link Barcode to Existing Item
+          <Typography variant="body2" color="text.secondary">
+            Barcode: <strong>{unknownBarcode}</strong>
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+              <TextField
+                fullWidth
+                autoFocus
+                label="Search items by name, SKU, or description"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchExistingItems()}
+                size="small"
+                inputProps={{ autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off' }}
+              />
+              <Button
+                variant="contained"
+                onClick={handleSearchExistingItems}
+                disabled={searchingItems || !searchQuery.trim()}
+              >
+                {searchingItems ? <CircularProgress size={24} /> : 'Search'}
+              </Button>
+            </Box>
+
+            {searchResults.length > 0 && (
+              <List sx={{ maxHeight: 300, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                {searchResults.map((item) => (
+                  <ListItem
+                    key={item.id}
+                    button
+                    selected={selectedItemToLink?.id === item.id}
+                    onClick={() => setSelectedItemToLink(item)}
+                    sx={{
+                      borderBottom: '1px solid',
+                      borderBottomColor: 'divider',
+                      '&.Mui-selected': { bgcolor: 'primary.light' }
+                    }}
+                  >
+                    <ListItemText
+                      primary={item.description || item.item_name}
+                      secondary={
+                        <>
+                          ID: {item.item_id || 'N/A'} | SKU: {item.sku || 'N/A'} | Qty: {item.qty || 0}
+                          {item.upc && <><br />Current UPC: {item.upc}</>}
+                        </>
+                      }
+                    />
+                    {selectedItemToLink?.id === item.id && (
+                      <CheckIcon color="primary" />
+                    )}
+                  </ListItem>
+                ))}
+              </List>
+            )}
+
+            {searchResults.length === 0 && hasSearched && !searchingItems && (
+              <Alert severity="info">No items found. Try a different search term.</Alert>
+            )}
+
+            {selectedItemToLink && (
+              <Alert severity="success" sx={{ mt: 2 }}>
+                Ready to link barcode <strong>{unknownBarcode}</strong> to: <strong>{selectedItemToLink.item_name || selectedItemToLink.description}</strong>
+              </Alert>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLinkToExistingOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleLinkBarcodeToItem}
+            disabled={saving || !selectedItemToLink}
+          >
+            {saving ? <CircularProgress size={24} /> : 'Link Barcode'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Create New Item Dialog */}
+      <Dialog
+        open={createNewOpen}
+        onClose={() => setCreateNewOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Create New Inventory Item
+          <Typography variant="body2" color="text.secondary">
+            Barcode: <strong>{unknownBarcode}</strong> will be saved automatically
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Item Name *"
+                  value={newItemData.item_name}
+                  onChange={(e) => setNewItemData({ ...newItemData, item_name: e.target.value })}
+                  placeholder="e.g., 20A GFCI Outlet"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Description"
+                  value={newItemData.description}
+                  onChange={(e) => setNewItemData({ ...newItemData, description: e.target.value })}
+                  multiline
+                  rows={2}
+                  placeholder="Detailed description..."
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="SKU"
+                  value={newItemData.sku}
+                  onChange={(e) => setNewItemData({ ...newItemData, sku: e.target.value })}
+                  placeholder="Internal SKU"
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Category"
+                  value={newItemData.category}
+                  onChange={(e) => setNewItemData({ ...newItemData, category: e.target.value })}
+                  placeholder="e.g., Devices"
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Initial Quantity"
+                  value={newItemData.qty}
+                  onChange={(e) => setNewItemData({ ...newItemData, qty: parseInt(e.target.value) || 0 })}
+                  inputProps={{ min: 0 }}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Location"
+                  value={newItemData.location}
+                  onChange={(e) => setNewItemData({ ...newItemData, location: e.target.value })}
+                  placeholder="e.g., Warehouse"
+                />
+              </Grid>
+            </Grid>
+
+            <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ width: '100%' }}>Quick Categories:</Typography>
+              {['Devices', 'Wire & Cable', 'Boxes & Covers', 'Conduit & Fittings', 'Circuit Breakers', 'Lighting'].map((cat) => (
+                <Chip
+                  key={cat}
+                  label={cat}
+                  size="small"
+                  clickable
+                  onClick={() => setNewItemData({ ...newItemData, category: cat })}
+                  color={newItemData.category === cat ? 'primary' : 'default'}
+                />
+              ))}
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateNewOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleCreateNewItem}
+            disabled={saving || (!newItemData.item_name && !newItemData.description)}
+          >
+            {saving ? <CircularProgress size={24} /> : 'Create Item'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
 
   // Mobile Camera View - show when on mobile and no item found yet
   if (isMobile && !foundItem) {
@@ -731,16 +1113,6 @@ function InventoryScanner() {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        {/* Hidden file input for native camera */}
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          ref={fileInputRef}
-          onChange={handleImageCapture}
-          style={{ display: 'none' }}
-        />
-
         {/* Camera Header */}
         <Box sx={{
           p: 2,
@@ -754,96 +1126,22 @@ function InventoryScanner() {
             <BackIcon />
           </IconButton>
           <Typography variant="h6">Scan Barcode</Typography>
-          {availableCameras.length > 1 && scannerActive && (
-            <IconButton color="inherit" onClick={switchCamera}>
-              <FlipCameraIcon />
-            </IconButton>
-          )}
-          {!scannerActive && <Box sx={{ width: 48 }} />}
+          <Box sx={{ width: 48 }} />
         </Box>
 
-        {/* Camera View */}
-        <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {/* Video element - always rendered but may be hidden */}
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              display: scannerActive ? 'block' : 'none',
-            }}
+        {/* Camera View using unified BarcodeScanner */}
+        <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          <BarcodeScanner
+            onScan={handleBarcodeScanned}
+            active={scannerActive}
+            onError={(err) => setCameraError(err)}
+            height="100%"
+            autoStart={true}
+            showControls={true}
+            pauseOnScan={true}
           />
 
-          {/* Show camera options if not active and no dialog is open */}
-          {!scannerActive && !cameraError && !searching && !unknownBarcodeDialogOpen && !linkToExistingOpen && !createNewOpen && (
-            <Box sx={{ textAlign: 'center', p: 3 }}>
-              <CameraIcon sx={{ fontSize: 80, color: 'white', mb: 2 }} />
-              <Typography color="white" variant="h6" gutterBottom>
-                Scan Barcode
-              </Typography>
-              <Typography color="grey.400" variant="body2" sx={{ mb: 3 }}>
-                Take a photo of the barcode to scan
-              </Typography>
-
-              {/* Primary: Native camera - works on HTTP */}
-              <Button
-                variant="contained"
-                color="success"
-                size="large"
-                startIcon={<CameraIcon />}
-                onClick={openNativeCamera}
-                sx={{ py: 2, px: 4, mb: 2, width: '100%', maxWidth: 280 }}
-              >
-                Take Photo to Scan
-              </Button>
-
-              {/* Secondary: Try live scanner (may not work on HTTP) */}
-              <Button
-                variant="outlined"
-                color="inherit"
-                size="small"
-                onClick={startScanner}
-                sx={{ color: 'grey.400', borderColor: 'grey.600' }}
-              >
-                Try Live Scanner
-              </Button>
-            </Box>
-          )}
-
-          {/* Scan overlay - only show when camera is active */}
-          {scannerActive && (
-            <Box sx={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '80%',
-              maxWidth: 300,
-              height: 150,
-              border: '3px solid #4caf50',
-              borderRadius: 2,
-              boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
-            }}>
-              <Box sx={{
-                position: 'absolute',
-                top: -30,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                bgcolor: 'rgba(0,0,0,0.7)',
-                color: 'white',
-                px: 2,
-                py: 0.5,
-                borderRadius: 1,
-              }}>
-                <Typography variant="caption">Position barcode here</Typography>
-              </Box>
-            </Box>
-          )}
-
+          {/* Searching overlay */}
           {searching && (
             <Box sx={{
               position: 'absolute',
@@ -854,42 +1152,10 @@ function InventoryScanner() {
               p: 3,
               borderRadius: 2,
               textAlign: 'center',
+              zIndex: 10,
             }}>
               <CircularProgress color="primary" />
-              <Typography color="white" sx={{ mt: 1 }}>Reading barcode...</Typography>
-            </Box>
-          )}
-
-          {cameraError && (
-            <Box sx={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              bgcolor: 'rgba(0,0,0,0.9)',
-              p: 3,
-              borderRadius: 2,
-              textAlign: 'center',
-              maxWidth: '80%',
-            }}>
-              <WarningIcon color="error" sx={{ fontSize: 48 }} />
-              <Typography color="white" sx={{ mt: 1 }}>{cameraError}</Typography>
-              <Button
-                variant="contained"
-                color="success"
-                sx={{ mt: 2, mr: 1 }}
-                onClick={openNativeCamera}
-              >
-                Take Photo
-              </Button>
-              <Button
-                variant="outlined"
-                color="inherit"
-                sx={{ mt: 2, color: 'white', borderColor: 'white' }}
-                onClick={() => setCameraError(null)}
-              >
-                Cancel
-              </Button>
+              <Typography color="white" sx={{ mt: 1 }}>Searching...</Typography>
             </Box>
           )}
         </Box>
@@ -904,7 +1170,7 @@ function InventoryScanner() {
             onChange={(e) => setBarcodeInput(e.target.value)}
             onKeyPress={handleBarcodeKeyPress}
             sx={{
-              bgcolor: 'white',
+              bgcolor: 'background.paper',
               borderRadius: 1,
               '& .MuiOutlinedInput-root': { borderRadius: 1 }
             }}
@@ -926,7 +1192,13 @@ function InventoryScanner() {
           onClose={handleUnknownBarcodeClose}
           maxWidth="sm"
           fullWidth
-          sx={{ zIndex: 10000 }}
+          keepMounted
+          disableScrollLock
+          sx={{
+            zIndex: 10001,
+            '& .MuiDialog-container': { zIndex: 10001 },
+            '& .MuiPaper-root': { zIndex: 10001 }
+          }}
           slotProps={{
             backdrop: {
               sx: { zIndex: 10000 }
@@ -939,7 +1211,7 @@ function InventoryScanner() {
           </DialogTitle>
           <DialogContent>
             <Box sx={{ textAlign: 'center', py: 2 }}>
-              <Paper sx={{ p: 2, bgcolor: 'grey.100', mb: 3 }}>
+              <Paper sx={{ p: 2, bgcolor: 'background.default', mb: 3 }}>
                 <Typography variant="caption" color="text.secondary">Scanned Barcode:</Typography>
                 <Typography variant="h5" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
                   {unknownBarcode}
@@ -999,7 +1271,13 @@ function InventoryScanner() {
           onClose={() => setLinkToExistingOpen(false)}
           maxWidth="sm"
           fullWidth
-          sx={{ zIndex: 10000 }}
+          keepMounted
+          disableScrollLock
+          sx={{
+            zIndex: 10001,
+            '& .MuiDialog-container': { zIndex: 10001 },
+            '& .MuiPaper-root': { zIndex: 10001 }
+          }}
           slotProps={{
             backdrop: {
               sx: { zIndex: 10000 }
@@ -1017,11 +1295,13 @@ function InventoryScanner() {
               <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                 <TextField
                   fullWidth
+                  autoFocus
                   label="Search items by name, SKU, or description"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearchExistingItems()}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearchExistingItems()}
                   size="small"
+                  inputProps={{ autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off' }}
                 />
                 <Button
                   variant="contained"
@@ -1047,10 +1327,10 @@ function InventoryScanner() {
                       }}
                     >
                       <ListItemText
-                        primary={item.item_name || item.description}
+                        primary={item.description || item.item_name}
                         secondary={
                           <>
-                            SKU: {item.sku || 'N/A'} | Qty: {item.qty || 0} | {item.category || 'No category'}
+                            ID: {item.item_id || 'N/A'} | SKU: {item.sku || 'N/A'} | Qty: {item.qty || 0}
                             {item.upc && <><br />Current UPC: {item.upc}</>}
                           </>
                         }
@@ -1063,7 +1343,12 @@ function InventoryScanner() {
                 </List>
               )}
 
-              {searchResults.length === 0 && searchQuery && !searchingItems && (
+              {/* Debug info - shows search status */}
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                Query: "{searchQuery}" | {searchDebugInfo || 'Ready'}
+              </Typography>
+
+              {searchResults.length === 0 && hasSearched && !searchingItems && (
                 <Alert severity="info">No items found. Try a different search term.</Alert>
               )}
 
@@ -1092,7 +1377,13 @@ function InventoryScanner() {
           onClose={() => setCreateNewOpen(false)}
           maxWidth="sm"
           fullWidth
-          sx={{ zIndex: 10000 }}
+          keepMounted
+          disableScrollLock
+          sx={{
+            zIndex: 10001,
+            '& .MuiDialog-container': { zIndex: 10001 },
+            '& .MuiPaper-root': { zIndex: 10001 }
+          }}
           slotProps={{
             backdrop: {
               sx: { zIndex: 10000 }
@@ -1211,7 +1502,7 @@ function InventoryScanner() {
   // Mobile Item Found View
   if (isMobile && foundItem) {
     return (
-      <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
         {/* Header */}
         <Box sx={{
           bgcolor: 'success.main',
@@ -1392,519 +1683,9 @@ function InventoryScanner() {
     );
   }
 
-  // Render dialogs (shared between mobile and desktop)
-  const renderDialogs = () => (
-    <>
-      {/* Adjust Count Dialog */}
-      <Dialog open={adjustCountOpen} onClose={() => setAdjustCountOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Adjust Stock Count</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              {foundItem?.item_id} - {foundItem?.description?.substring(0, 50)}...
-            </Typography>
-            <Typography variant="h6" gutterBottom>
-              Current: {foundItem?.qty || 0}
-            </Typography>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, my: 3 }}>
-              <IconButton
-                color="error"
-                size="large"
-                onClick={() => setAdjustQuantity(prev => prev - 1)}
-                sx={{ border: '2px solid', borderColor: 'error.main', width: 56, height: 56 }}
-              >
-                <RemoveIcon />
-              </IconButton>
-              <TextField
-                type="number"
-                value={adjustQuantity}
-                onChange={(e) => setAdjustQuantity(parseInt(e.target.value) || 0)}
-                sx={{ width: 80 }}
-                inputProps={{ style: { textAlign: 'center', fontSize: '1.5rem' } }}
-              />
-              <IconButton
-                color="success"
-                size="large"
-                onClick={() => setAdjustQuantity(prev => prev + 1)}
-                sx={{ border: '2px solid', borderColor: 'success.main', width: 56, height: 56 }}
-              >
-                <AddIcon />
-              </IconButton>
-            </Box>
-
-            <Typography variant="h6" sx={{ textAlign: 'center', mb: 2 }}>
-              New Stock: <strong>{(foundItem?.qty || 0) + adjustQuantity}</strong>
-            </Typography>
-
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center', mb: 2 }}>
-              <Chip label="-10" onClick={() => setAdjustQuantity(-10)} clickable />
-              <Chip label="-5" onClick={() => setAdjustQuantity(-5)} clickable />
-              <Chip label="+1" onClick={() => setAdjustQuantity(1)} clickable color="primary" />
-              <Chip label="+5" onClick={() => setAdjustQuantity(5)} clickable color="primary" />
-              <Chip label="+10" onClick={() => setAdjustQuantity(10)} clickable color="primary" />
-            </Box>
-
-            <TextField
-              fullWidth
-              label="Reason (optional)"
-              value={adjustReason}
-              onChange={(e) => setAdjustReason(e.target.value)}
-              placeholder="e.g., Physical count..."
-              size="small"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAdjustCountOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={saveAdjustCount}
-            disabled={saving || adjustQuantity === 0}
-            color={adjustQuantity > 0 ? 'success' : 'error'}
-          >
-            {saving ? <CircularProgress size={24} /> : (adjustQuantity > 0 ? `Add ${adjustQuantity}` : `Remove ${Math.abs(adjustQuantity)}`)}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Set Count Dialog - For inventory counting */}
-      <Dialog open={setCountOpen} onClose={() => setSetCountOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ bgcolor: 'warning.main', color: 'warning.contrastText' }}>
-          Set Physical Count
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              {foundItem?.item_id} - {foundItem?.description?.substring(0, 50)}...
-            </Typography>
-
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', my: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-              <Box>
-                <Typography variant="caption" color="text.secondary">System Count</Typography>
-                <Typography variant="h5">{foundItem?.qty || 0}</Typography>
-              </Box>
-              <Typography variant="h4" color="text.secondary">→</Typography>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Physical Count</Typography>
-                <Typography variant="h5" color={physicalCount !== (foundItem?.qty || 0) ? 'warning.main' : 'success.main'}>
-                  {physicalCount}
-                </Typography>
-              </Box>
-            </Box>
-
-            <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-              Enter what you counted:
-            </Typography>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, my: 2 }}>
-              <IconButton
-                color="error"
-                size="large"
-                onClick={() => setPhysicalCount(prev => Math.max(0, prev - 1))}
-                sx={{ border: '2px solid', borderColor: 'error.main', width: 56, height: 56 }}
-              >
-                <RemoveIcon />
-              </IconButton>
-              <TextField
-                type="number"
-                value={physicalCount}
-                onChange={(e) => setPhysicalCount(Math.max(0, parseInt(e.target.value) || 0))}
-                sx={{ width: 100 }}
-                inputProps={{ style: { textAlign: 'center', fontSize: '2rem' }, min: 0 }}
-                autoFocus
-              />
-              <IconButton
-                color="success"
-                size="large"
-                onClick={() => setPhysicalCount(prev => prev + 1)}
-                sx={{ border: '2px solid', borderColor: 'success.main', width: 56, height: 56 }}
-              >
-                <AddIcon />
-              </IconButton>
-            </Box>
-
-            {physicalCount !== (foundItem?.qty || 0) && (
-              <Alert
-                severity={physicalCount > (foundItem?.qty || 0) ? 'info' : 'warning'}
-                sx={{ mb: 2 }}
-              >
-                {physicalCount > (foundItem?.qty || 0)
-                  ? `Will add ${physicalCount - (foundItem?.qty || 0)} to stock`
-                  : `Will remove ${(foundItem?.qty || 0) - physicalCount} from stock`
-                }
-              </Alert>
-            )}
-
-            <TextField
-              fullWidth
-              label="Note (optional)"
-              value={adjustReason}
-              onChange={(e) => setAdjustReason(e.target.value)}
-              placeholder="e.g., Counted shelf A-3..."
-              size="small"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSetCountOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={saveSetCount}
-            disabled={saving}
-            color={physicalCount === (foundItem?.qty || 0) ? 'success' : 'warning'}
-          >
-            {saving ? <CircularProgress size={24} /> : (
-              physicalCount === (foundItem?.qty || 0) ? 'Confirm Match' : `Update to ${physicalCount}`
-            )}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Change Location Dialog */}
-      <Dialog open={changeLocationOpen} onClose={() => setChangeLocationOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Change Location</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <TextField
-              fullWidth
-              label="Location"
-              value={newLocation}
-              onChange={(e) => setNewLocation(e.target.value)}
-              placeholder="e.g., Warehouse, Truck 1..."
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Bin Location"
-              value={newBinLocation}
-              onChange={(e) => setNewBinLocation(e.target.value)}
-              placeholder="e.g., Shelf 3, Bin A-12..."
-              sx={{ mb: 2 }}
-            />
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              <Chip label="Warehouse" onClick={() => setNewLocation('Warehouse')} clickable size="small" />
-              <Chip label="Shop" onClick={() => setNewLocation('Shop')} clickable size="small" />
-              <Chip label="Truck 1" onClick={() => setNewLocation('Truck 1')} clickable size="small" />
-              <Chip label="Truck 2" onClick={() => setNewLocation('Truck 2')} clickable size="small" />
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setChangeLocationOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={saveChangeLocation} disabled={saving}>
-            {saving ? <CircularProgress size={24} /> : 'Update'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Add to Work Order Dialog */}
-      <Dialog open={addToOrderOpen} onClose={() => setAddToOrderOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add to Work Order</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>Select Work Order</InputLabel>
-              <Select
-                value={selectedWorkOrder}
-                onChange={(e) => setSelectedWorkOrder(e.target.value)}
-                label="Select Work Order"
-              >
-                {workOrders.length === 0 ? (
-                  <MenuItem disabled>No active work orders</MenuItem>
-                ) : (
-                  workOrders.map((wo) => (
-                    <MenuItem key={wo.id} value={wo.id}>
-                      {wo.work_order_number} - {wo.customer_name}
-                    </MenuItem>
-                  ))
-                )}
-              </Select>
-            </FormControl>
-            <TextField
-              fullWidth
-              type="number"
-              label="Quantity"
-              value={orderQuantity}
-              onChange={(e) => setOrderQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-              inputProps={{ min: 1 }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAddToOrderOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={saveAddToOrder}
-            disabled={saving || !selectedWorkOrder}
-          >
-            {saving ? <CircularProgress size={24} /> : 'Add to Order'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Unknown Barcode Dialog */}
-      <Dialog
-        open={unknownBarcodeDialogOpen}
-        onClose={handleUnknownBarcodeClose}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
-          <WarningIcon color="warning" sx={{ fontSize: 48, mb: 1 }} />
-          <Typography variant="h6">Unknown Barcode</Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ textAlign: 'center', py: 2 }}>
-            <Paper sx={{ p: 2, bgcolor: 'grey.100', mb: 3 }}>
-              <Typography variant="caption" color="text.secondary">Scanned Barcode:</Typography>
-              <Typography variant="h5" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
-                {unknownBarcode}
-              </Typography>
-            </Paper>
-
-            <Typography variant="body1" color="text.secondary" gutterBottom>
-              This barcode is not in your inventory. What would you like to do?
-            </Typography>
-
-            <Grid container spacing={2} sx={{ mt: 2 }}>
-              <Grid item xs={12}>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  size="large"
-                  startIcon={<SearchIcon />}
-                  onClick={handleLinkToExisting}
-                  sx={{ py: 2 }}
-                >
-                  Link to Existing Item
-                </Button>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                  Search for an item and add this barcode to it
-                </Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="success"
-                  size="large"
-                  startIcon={<AddIcon />}
-                  onClick={handleCreateNew}
-                  sx={{ py: 2 }}
-                >
-                  Create New Item
-                </Button>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                  Add a new inventory item with this barcode
-                </Typography>
-              </Grid>
-            </Grid>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleUnknownBarcodeClose} color="inherit">
-            Cancel & Scan Again
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Link to Existing Item Dialog */}
-      <Dialog
-        open={linkToExistingOpen}
-        onClose={() => setLinkToExistingOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          Link Barcode to Existing Item
-          <Typography variant="body2" color="text.secondary">
-            Barcode: <strong>{unknownBarcode}</strong>
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-              <TextField
-                fullWidth
-                label="Search items by name, SKU, or description"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearchExistingItems()}
-                size="small"
-              />
-              <Button
-                variant="contained"
-                onClick={handleSearchExistingItems}
-                disabled={searchingItems || !searchQuery.trim()}
-              >
-                {searchingItems ? <CircularProgress size={24} /> : 'Search'}
-              </Button>
-            </Box>
-
-            {searchResults.length > 0 && (
-              <List sx={{ maxHeight: 300, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                {searchResults.map((item) => (
-                  <ListItem
-                    key={item.id}
-                    button
-                    selected={selectedItemToLink?.id === item.id}
-                    onClick={() => setSelectedItemToLink(item)}
-                    sx={{
-                      borderBottom: '1px solid',
-                      borderBottomColor: 'divider',
-                      '&.Mui-selected': { bgcolor: 'primary.light' }
-                    }}
-                  >
-                    <ListItemText
-                      primary={item.item_name || item.description}
-                      secondary={
-                        <>
-                          SKU: {item.sku || 'N/A'} | Qty: {item.qty || 0} | {item.category || 'No category'}
-                          {item.upc && <><br />Current UPC: {item.upc}</>}
-                        </>
-                      }
-                    />
-                    {selectedItemToLink?.id === item.id && (
-                      <CheckIcon color="primary" />
-                    )}
-                  </ListItem>
-                ))}
-              </List>
-            )}
-
-            {searchResults.length === 0 && searchQuery && !searchingItems && (
-              <Alert severity="info">No items found. Try a different search term.</Alert>
-            )}
-
-            {selectedItemToLink && (
-              <Alert severity="success" sx={{ mt: 2 }}>
-                Ready to link barcode <strong>{unknownBarcode}</strong> to: <strong>{selectedItemToLink.item_name || selectedItemToLink.description}</strong>
-              </Alert>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setLinkToExistingOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleLinkBarcodeToItem}
-            disabled={saving || !selectedItemToLink}
-          >
-            {saving ? <CircularProgress size={24} /> : 'Link Barcode'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Create New Item Dialog */}
-      <Dialog
-        open={createNewOpen}
-        onClose={() => setCreateNewOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          Create New Inventory Item
-          <Typography variant="body2" color="text.secondary">
-            Barcode: <strong>{unknownBarcode}</strong> will be saved automatically
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Item Name *"
-                  value={newItemData.item_name}
-                  onChange={(e) => setNewItemData({ ...newItemData, item_name: e.target.value })}
-                  placeholder="e.g., 20A GFCI Outlet"
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Description"
-                  value={newItemData.description}
-                  onChange={(e) => setNewItemData({ ...newItemData, description: e.target.value })}
-                  multiline
-                  rows={2}
-                  placeholder="Detailed description..."
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <TextField
-                  fullWidth
-                  label="SKU"
-                  value={newItemData.sku}
-                  onChange={(e) => setNewItemData({ ...newItemData, sku: e.target.value })}
-                  placeholder="Internal SKU"
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <TextField
-                  fullWidth
-                  label="Category"
-                  value={newItemData.category}
-                  onChange={(e) => setNewItemData({ ...newItemData, category: e.target.value })}
-                  placeholder="e.g., Devices"
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="Initial Quantity"
-                  value={newItemData.qty}
-                  onChange={(e) => setNewItemData({ ...newItemData, qty: parseInt(e.target.value) || 0 })}
-                  inputProps={{ min: 0 }}
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <TextField
-                  fullWidth
-                  label="Location"
-                  value={newItemData.location}
-                  onChange={(e) => setNewItemData({ ...newItemData, location: e.target.value })}
-                  placeholder="e.g., Warehouse"
-                />
-              </Grid>
-            </Grid>
-
-            <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ width: '100%' }}>Quick Categories:</Typography>
-              {['Devices', 'Wire & Cable', 'Boxes & Covers', 'Conduit & Fittings', 'Circuit Breakers', 'Lighting'].map((cat) => (
-                <Chip
-                  key={cat}
-                  label={cat}
-                  size="small"
-                  clickable
-                  onClick={() => setNewItemData({ ...newItemData, category: cat })}
-                  color={newItemData.category === cat ? 'primary' : 'default'}
-                />
-              ))}
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateNewOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            color="success"
-            onClick={handleCreateNewItem}
-            disabled={saving || (!newItemData.item_name && !newItemData.description)}
-          >
-            {saving ? <CircularProgress size={24} /> : 'Create Item'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </>
-  );
-
   // Desktop View
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppHeader title="Inventory Scanner" />
 
       <Container maxWidth="lg" sx={{ py: 3 }}>
@@ -1928,26 +1709,16 @@ function InventoryScanner() {
           </Box>
 
           {scannerActive && (
-            <Box sx={{ mb: 3, position: 'relative' }}>
-              <video
-                ref={videoRef}
-                style={{
-                  width: '100%',
-                  maxHeight: 300,
-                  objectFit: 'cover',
-                  borderRadius: 8,
-                }}
+            <Box sx={{ mb: 3 }}>
+              <BarcodeScanner
+                onScan={handleBarcodeScanned}
+                active={scannerActive}
+                onError={(err) => setCameraError(err)}
+                height={300}
+                autoStart={true}
+                showControls={true}
+                pauseOnScan={true}
               />
-              <Button
-                variant="contained"
-                color="error"
-                size="small"
-                startIcon={<CloseIcon />}
-                onClick={stopScanner}
-                sx={{ position: 'absolute', top: 8, right: 8 }}
-              >
-                Close Camera
-              </Button>
             </Box>
           )}
 
@@ -2039,7 +1810,7 @@ function InventoryScanner() {
                 <Divider sx={{ my: 2 }} />
 
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>Quick Actions</Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
                   <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={handleAdjustCount}>
                     Adjust Count
                   </Button>
@@ -2061,8 +1832,8 @@ function InventoryScanner() {
                 )}
               </Paper>
             ) : (
-              <Paper elevation={1} sx={{ p: 6, textAlign: 'center', bgcolor: '#fafafa', border: '2px dashed #ddd' }}>
-                <ScannerIcon sx={{ fontSize: 80, color: '#ccc', mb: 2 }} />
+              <Paper elevation={1} sx={{ p: 6, textAlign: 'center', bgcolor: 'background.paper', border: 2, borderStyle: 'dashed', borderColor: 'divider' }}>
+                <ScannerIcon sx={{ fontSize: 80, color: 'action.disabled', mb: 2 }} />
                 <Typography variant="h6" color="text.secondary">Scan a barcode to get started</Typography>
               </Paper>
             )}

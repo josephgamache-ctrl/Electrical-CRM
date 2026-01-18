@@ -1,13 +1,20 @@
-// MA Electrical PWA Service Worker
-const CACHE_NAME = 'ma-electrical-v1';
-const STATIC_CACHE = 'ma-electrical-static-v1';
+// Pem2 Services PWA Service Worker
+// Updated: 2026-01-17 - Invoice line item editing with audit logging
+const CACHE_NAME = 'pem2-services-v46';
+const STATIC_CACHE = 'pem2-services-static-v46';
 
-// Static assets to cache immediately
+// Static assets to cache immediately (include all icon sizes)
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/icons/icon-72x72.png',
+  '/icons/icon-96x96.png',
+  '/icons/icon-128x128.png',
+  '/icons/icon-144x144.png',
+  '/icons/icon-152x152.png',
   '/icons/icon-192x192.png',
+  '/icons/icon-384x384.png',
   '/icons/icon-512x512.png'
 ];
 
@@ -75,7 +82,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For static assets, use cache-first strategy
+  // For JS files, always try network first (ensures latest code)
+  if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(request);
+        })
+    );
+    return;
+  }
+
+  // For other static assets, use cache-first strategy
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) {

@@ -1,7 +1,8 @@
 /* Mobile Dashboard - FieldPulse Inspired */
+/* Dark mode compatible with CSS variables */
 .mobile-dashboard {
   min-height: 100vh;
-  background: linear-gradient(180deg, #1e2656 0%, #2a3166 100%);
+  background: var(--mobile-dashboard-bg, linear-gradient(180deg, #1e2656 0%, #2a3166 100%));
   padding-bottom: 70px;
   position: relative;
 }
@@ -19,9 +20,9 @@
 
 /* Stats Section */
 .stats-section {
-  background: linear-gradient(135deg, #1e2656 0%, #2d3875 100%);
+  background: var(--mobile-stats-bg, linear-gradient(135deg, #1e2656 0%, #2d3875 100%));
   padding: 20px 16px;
-  color: white;
+  color: var(--mobile-stats-text, white);
 }
 
 .stats-header {
@@ -31,7 +32,7 @@
 .stats-title {
   font-size: 20px !important;
   font-weight: 700 !important;
-  color: white;
+  color: var(--mobile-stats-text, white);
 }
 
 /* Completion Circle */
@@ -53,6 +54,10 @@
   transition: stroke-dasharray 1s ease;
 }
 
+.completion-circle svg circle:first-child {
+  stroke: var(--mobile-circle-bg, #2a2f5a);
+}
+
 .circle-content {
   position: absolute;
   top: 50%;
@@ -64,13 +69,13 @@
 .circle-value {
   font-size: 28px;
   font-weight: 700;
-  color: white;
+  color: var(--mobile-stats-text, white);
   margin-bottom: 4px;
 }
 
 .circle-label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--mobile-stats-text-muted, rgba(255, 255, 255, 0.8));
   max-width: 100px;
   line-height: 1.2;
 }
@@ -92,13 +97,13 @@
 .stat-value {
   font-size: 20px;
   font-weight: 700;
-  color: white;
+  color: var(--mobile-stats-text, white);
   min-width: 30px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--mobile-stats-text-muted, rgba(255, 255, 255, 0.9));
   flex: 1;
   text-align: right;
 }
@@ -109,7 +114,7 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
   padding: 16px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--mobile-quick-actions-bg, rgba(255, 255, 255, 0.1));
   border-radius: 12px;
 }
 
@@ -118,7 +123,7 @@
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  background: white;
+  background: var(--bg-paper, white);
   border: none;
   border-radius: 8px;
   padding: 12px 8px;
@@ -144,14 +149,14 @@
 .action-label {
   font-size: 11px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary, #333);
   text-align: center;
   line-height: 1.2;
 }
 
 /* Sections */
 .section {
-  background: white;
+  background: var(--bg-paper, white);
   margin-top: 16px;
   padding: 16px;
 }
@@ -166,7 +171,7 @@
 .section-title {
   font-size: 18px !important;
   font-weight: 700 !important;
-  color: #1e2656;
+  color: var(--text-primary, #1e2656);
 }
 
 .create-btn {
@@ -199,14 +204,14 @@
   justify-content: space-between;
   align-items: center;
   padding: 14px;
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .job-item:active {
-  background: #e9ecef;
+  background: var(--bg-default, #e9ecef);
   transform: scale(0.98);
 }
 
@@ -217,13 +222,13 @@
 .job-title {
   font-size: 15px;
   font-weight: 600;
-  color: #1e2656;
+  color: var(--text-primary, #1e2656);
   margin-bottom: 4px;
 }
 
 .job-customer {
   font-size: 13px;
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
 }
 
 .job-actions {
@@ -237,7 +242,7 @@
   font-weight: 600;
   padding: 4px 12px;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--bg-default, rgba(0, 0, 0, 0.05));
   white-space: nowrap;
 }
 
@@ -254,14 +259,14 @@
   justify-content: space-between;
   align-items: center;
   padding: 14px;
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .customer-item:active {
-  background: #e9ecef;
+  background: var(--bg-default, #e9ecef);
   transform: scale(0.98);
 }
 
@@ -272,21 +277,21 @@
 .customer-name {
   font-size: 15px;
   font-weight: 600;
-  color: #1e2656;
+  color: var(--text-primary, #1e2656);
   margin-bottom: 4px;
 }
 
 .customer-phone {
   font-size: 13px;
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
 }
 
 .customer-type {
   font-size: 13px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text-primary, #495057);
   padding: 4px 12px;
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--bg-default, rgba(0, 0, 0, 0.05));
   border-radius: 12px;
 }
 
@@ -295,9 +300,9 @@
   width: 100%;
   padding: 12px;
   background: transparent;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--border-color, #e9ecef);
   border-radius: 8px;
-  color: #495057;
+  color: var(--text-secondary, #495057);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -305,7 +310,7 @@
 }
 
 .view-more-btn:active {
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
   transform: scale(0.98);
 }
 
@@ -315,8 +320,8 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: white;
-  border-top: 1px solid #e9ecef;
+  background: var(--bg-paper, white);
+  border-top: 1px solid var(--border-color, #e9ecef);
   display: flex;
   justify-content: space-around;
   padding: 8px 0;
@@ -333,14 +338,14 @@
   border: none;
   padding: 8px 12px;
   cursor: pointer;
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
   transition: all 0.2s ease;
   flex: 1;
   max-width: 80px;
 }
 
 .nav-item:active {
-  color: #1e2656;
+  color: var(--text-primary, #1e2656);
   transform: scale(0.95);
 }
 
@@ -381,3 +386,10 @@
 .section:nth-child(1) { animation-delay: 0.05s; }
 .section:nth-child(2) { animation-delay: 0.1s; }
 .section:nth-child(3) { animation-delay: 0.15s; }
+
+/* Empty Message */
+.empty-message {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-secondary, #6c757d);
+}

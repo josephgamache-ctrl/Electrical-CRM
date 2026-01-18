@@ -259,9 +259,11 @@ function ScheduleCalendar({ userRole }) {
   };
 
   // Handle success from ModifyCrewDialog
-  const handleModifyCrewSuccess = (result) => {
+  const handleModifyCrewSuccess = async (result) => {
     setSuccess(result.message);
-    // Update selected day's jobs
+    // Ensure schedule data is refreshed to show updates
+    await refreshSchedule();
+    // Update selected day's jobs after refresh
     if (selectedDay) {
       const updatedJobs = schedule.filter(s => s.scheduled_date === selectedDay.dateStr);
       setSelectedDay({ ...selectedDay, jobs: updatedJobs });
@@ -304,7 +306,7 @@ function ScheduleCalendar({ userRole }) {
       return (
         <Box
           sx={{
-            bgcolor: '#fafafa',
+            bgcolor: 'background.paper',
             minHeight: isWeekView ? 'calc(100vh - 280px)' : { xs: 48, sm: 70, md: 120 },
             borderRadius: 1,
           }}
@@ -324,14 +326,15 @@ function ScheduleCalendar({ userRole }) {
         sx={{
           minHeight: isWeekView ? 'calc(100vh - 280px)' : { xs: 48, sm: 70, md: 120 },
           p: isWeekView ? 1.5 : { xs: 0.25, sm: 0.5, md: 1 },
-          bgcolor: today ? '#e3f2fd' : 'white',
+          bgcolor: today ? 'primary.light' : 'background.paper',
           cursor: 'pointer',
-          border: today ? '2px solid #1976d2' : '1px solid #e0e0e0',
+          border: today ? '2px solid' : '1px solid',
+          borderColor: today ? 'primary.main' : 'divider',
           borderRadius: { xs: 0.5, md: 1 },
           overflow: 'hidden',
           transition: 'all 0.2s',
           '&:hover': {
-            bgcolor: '#f5f5f5',
+            bgcolor: 'action.hover',
             transform: 'scale(1.01)',
             boxShadow: 3,
           },
@@ -346,7 +349,9 @@ function ScheduleCalendar({ userRole }) {
             justifyContent: 'space-between',
             mb: { xs: 0, md: 0.5 },
             pb: isWeekView ? 1 : 0,
-            borderBottom: isWeekView ? '1px solid #e0e0e0' : 'none',
+            borderBottom: isWeekView ? 1 : 0,
+            borderBottomStyle: 'solid',
+            borderBottomColor: 'divider',
           }}
         >
           {isWeekView && (
@@ -354,7 +359,7 @@ function ScheduleCalendar({ userRole }) {
               sx={{
                 fontSize: 12,
                 fontWeight: 500,
-                color: today ? '#1976d2' : '#666',
+                color: today ? 'primary.main' : 'text.secondary',
                 textTransform: 'uppercase',
               }}
             >
@@ -365,8 +370,8 @@ function ScheduleCalendar({ userRole }) {
             sx={{
               fontSize: isWeekView ? 24 : { xs: 11, sm: 13, md: 16 },
               fontWeight: today ? 700 : 500,
-              color: today && isWeekView ? 'white' : today ? '#1976d2' : 'inherit',
-              bgcolor: today && isWeekView ? '#1976d2' : 'transparent',
+              color: today && isWeekView ? 'primary.contrastText' : today ? 'primary.main' : 'text.primary',
+              bgcolor: today && isWeekView ? 'primary.main' : 'transparent',
               borderRadius: '50%',
               width: isWeekView ? 40 : { xs: 20, md: 'auto' },
               height: isWeekView ? 40 : { xs: 20, md: 'auto' },
@@ -401,7 +406,7 @@ function ScheduleCalendar({ userRole }) {
               <Typography
                 sx={{
                   fontSize: 12,
-                  color: '#999',
+                  color: 'text.disabled',
                   textAlign: 'center',
                   mt: 2,
                 }}
@@ -471,7 +476,7 @@ function ScheduleCalendar({ userRole }) {
             ))
           )}
           {jobs.length > (isWeekView ? 10 : (isMobile ? 1 : 3)) && (
-            <Typography sx={{ fontSize: { xs: 8, md: 10 }, color: '#666', textAlign: 'center' }}>
+            <Typography sx={{ fontSize: { xs: 8, md: 10 }, color: 'text.secondary', textAlign: 'center' }}>
               +{jobs.length - (isWeekView ? 10 : (isMobile ? 1 : 3))}
             </Typography>
           )}
@@ -481,7 +486,7 @@ function ScheduleCalendar({ userRole }) {
   };
 
   return (
-    <Box sx={{ bgcolor: '#f5f5f5', minHeight: 'calc(100vh - 180px)' }}>
+    <Box sx={{ bgcolor: 'background.default', minHeight: 'calc(100vh - 180px)' }}>
       {/* Alerts */}
       {error && (
         <Alert severity="error" onClose={() => setError(null)} sx={{ m: 1 }}>
@@ -584,7 +589,7 @@ function ScheduleCalendar({ userRole }) {
                   align="center"
                   sx={{
                     fontWeight: 600,
-                    color: '#666',
+                    color: 'text.secondary',
                     fontSize: { xs: 11, md: 14 },
                     py: 0.5,
                   }}
@@ -618,7 +623,7 @@ function ScheduleCalendar({ userRole }) {
         fullWidth
         fullScreen={isMobile}
       >
-        <DialogTitle sx={{ bgcolor: '#1976d2', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: 'secondary.dark', color: 'secondary.contrastText' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CalendarMonthIcon />
             {selectedDay &&
@@ -633,7 +638,7 @@ function ScheduleCalendar({ userRole }) {
         <DialogContent sx={{ p: 0 }}>
           {selectedDay?.jobs.length === 0 ? (
             <Box sx={{ p: 4, textAlign: 'center' }}>
-              <ScheduleIcon sx={{ fontSize: 48, color: '#ccc', mb: 2 }} />
+              <ScheduleIcon sx={{ fontSize: 48, color: 'action.disabled', mb: 2 }} />
               <Typography color="text.secondary">No jobs scheduled for this day</Typography>
             </Box>
           ) : (
@@ -666,8 +671,11 @@ function ScheduleCalendar({ userRole }) {
                     )
                   }
                   sx={{
-                    borderBottom: '1px solid #eee',
-                    borderLeft: `4px solid ${PRIORITY_COLORS[job.priority] || '#1976d2'}`,
+                    borderBottom: 1,
+                    borderBottomColor: 'divider',
+                    borderLeft: 4,
+                    borderLeftStyle: 'solid',
+                    borderLeftColor: PRIORITY_COLORS[job.priority] || 'primary.main',
                   }}
                 >
                   <ListItemAvatar>
@@ -729,7 +737,7 @@ function ScheduleCalendar({ userRole }) {
             </List>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: '1px solid #eee' }}>
+        <DialogActions sx={{ p: 2, borderTop: 1, borderTopColor: 'divider' }}>
           <Button onClick={() => setDayDialogOpen(false)}>Close</Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenJobSelector}>
             Schedule Job
@@ -745,7 +753,7 @@ function ScheduleCalendar({ userRole }) {
         fullWidth
         fullScreen={isMobile}
       >
-        <DialogTitle sx={{ bgcolor: '#1976d2', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: 'secondary.dark', color: 'secondary.contrastText' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <AddIcon />
             Select Job to Schedule
@@ -761,16 +769,17 @@ function ScheduleCalendar({ userRole }) {
                 <ListItem
                   key={wo.id}
                   sx={{
-                    border: '1px solid #e0e0e0',
+                    border: 1,
+                    borderColor: 'divider',
                     borderRadius: 1,
                     mb: 1,
                     cursor: 'pointer',
-                    '&:hover': { bgcolor: '#f5f5f5' },
+                    '&:hover': { bgcolor: 'action.hover' },
                   }}
                   onClick={() => handleJobSelected(wo)}
                 >
                   <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: '#1976d2' }}>
+                    <Avatar sx={{ bgcolor: 'secondary.dark' }}>
                       <ScheduleIcon />
                     </Avatar>
                   </ListItemAvatar>
@@ -799,7 +808,7 @@ function ScheduleCalendar({ userRole }) {
             </List>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: '1px solid #eee' }}>
+        <DialogActions sx={{ p: 2, borderTop: 1, borderTopColor: 'divider' }}>
           <Button onClick={() => setJobSelectorOpen(false)}>Cancel</Button>
         </DialogActions>
       </Dialog>

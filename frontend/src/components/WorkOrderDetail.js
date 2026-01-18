@@ -8,13 +8,9 @@ import {
   Chip,
   IconButton,
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Checkbox,
+  List,
+  ListItem,
+  ListItemText,
   CircularProgress,
   Alert,
   Dialog,
@@ -26,36 +22,26 @@ import {
   CardContent,
   Snackbar,
   TextField,
-  ImageList,
-  ImageListItem,
-  ImageListItemBar,
 } from '@mui/material';
+import ConfirmDialog from './common/ConfirmDialog';
 import {
-  ArrowBack as ArrowBackIcon,
-  CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
-  Note as NoteIcon,
-  PhotoCamera as PhotoCameraIcon,
-  Send as SendIcon,
   Visibility as ViewIcon,
+  Inventory as InventoryIcon,
+  ShoppingCart as ShoppingCartIcon,
+  LocationOn as LocationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   fetchWorkOrder,
   allocateMaterials,
   deallocateMaterials,
+  markFieldAcquisition,
   addMaterialToWorkOrder,
   removeMaterialFromWorkOrder,
-  fetchWorkOrderNotes,
-  addWorkOrderNote,
-  deleteWorkOrderNote,
-  fetchWorkOrderPhotos,
-  uploadWorkOrderPhoto,
-  deleteWorkOrderPhoto,
-  getPhotoUrl,
+  deleteWorkOrder,
 } from '../api';
 import AddMaterialDialog from './AddMaterialDialog';
 import EditWorkOrderDialog from './EditWorkOrderDialog';
@@ -77,11 +63,19 @@ function WorkOrderDetail() {
   const [workOrder, setWorkOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedMaterials, setSelectedMaterials] = useState([]);
   const [allocating, setAllocating] = useState(false);
   const [allocationResult, setAllocationResult] = useState(null);
   const [addMaterialDialogOpen, setAddMaterialDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [removeMaterialDialog, setRemoveMaterialDialog] = useState({ open: false, materialId: null });
+
+  // Material action dialog state
+  const [materialActionDialog, setMaterialActionDialog] = useState(null);
+  const [actionQuantity, setActionQuantity] = useState(1);
+  const [actionCost, setActionCost] = useState('');
+  const [processingAction, setProcessingAction] = useState(false);
 
   useEffect(() => {
     loadWorkOrder();
@@ -101,51 +95,84 @@ function WorkOrderDetail() {
     }
   };
 
-  const handleSelectMaterial = (materialId) => {
-    setSelectedMaterials(prev =>
-      prev.includes(materialId)
-        ? prev.filter(id => id !== materialId)
-        : [...prev, materialId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedMaterials.length === workOrder.materials.length) {
-      setSelectedMaterials([]);
-    } else {
-      setSelectedMaterials(workOrder.materials.map(m => m.id));
+  const handleDeleteWorkOrder = async () => {
+    try {
+      setDeleting(true);
+      await deleteWorkOrder(id);
+      setDeleteDialogOpen(false);
+      navigate('/work-orders');
+    } catch (err) {
+      logger.error('Error deleting work order:', err);
+      setError(err.message);
+      setDeleting(false);
     }
   };
 
-  const handleAllocate = async () => {
-    if (selectedMaterials.length === 0) return;
+  // Open dialog for pull action
+  const openPullDialog = (material) => {
+    const remaining = material.quantity_needed - (material.quantity_allocated || 0);
+    setMaterialActionDialog({ material, action: 'pull' });
+    setActionQuantity(Math.min(remaining, material.available_qty || 0));
+    setActionCost('');
+  };
+
+  // Open dialog for got it action
+  const openGotItDialog = (material) => {
+    const remaining = material.quantity_needed - (material.quantity_allocated || 0);
+    setMaterialActionDialog({ material, action: 'gotit' });
+    setActionQuantity(remaining);
+    setActionCost('');
+  };
+
+  // Close dialog
+  const closeMaterialActionDialog = () => {
+    setMaterialActionDialog(null);
+    setActionQuantity(1);
+    setActionCost('');
+  };
+
+  // Execute material action (pull or got it)
+  const handleMaterialAction = async () => {
+    if (!materialActionDialog) return;
+
+    const { material, action } = materialActionDialog;
+    const quantity = parseInt(actionQuantity) || 0;
+    const cost = actionCost ? parseFloat(actionCost) : null;
+
+    if (quantity <= 0) {
+      setError('Please enter a valid quantity');
+      return;
+    }
 
     try {
-      setAllocating(true);
-      const result = await allocateMaterials(id, selectedMaterials);
-      setAllocationResult(result);
-      setSelectedMaterials([]);
-      // Reload work order to see updated allocations
+      setProcessingAction(true);
+
+      if (action === 'pull') {
+        await allocateMaterials(id, [material.id], quantity);
+        setAllocationResult({ message: `Pulled ${quantity} x ${material.description} from warehouse` });
+      } else if (action === 'gotit') {
+        await markFieldAcquisition(id, material.id, quantity, cost);
+        setAllocationResult({ message: `Marked ${quantity} x ${material.description} as acquired` });
+      }
+
+      closeMaterialActionDialog();
       await loadWorkOrder();
     } catch (err) {
-      logger.error('Error allocating materials:', err);
+      logger.error(`Error ${action} material:`, err);
       setError(err.message);
     } finally {
-      setAllocating(false);
+      setProcessingAction(false);
     }
   };
 
-  const handleDeallocate = async () => {
-    if (selectedMaterials.length === 0) return;
-
+  const handleReturnMaterial = async (materialId) => {
     try {
       setAllocating(true);
-      const result = await deallocateMaterials(id, selectedMaterials);
-      setAllocationResult(result);
-      setSelectedMaterials([]);
+      await deallocateMaterials(id, [materialId]);
+      setAllocationResult({ message: 'Material returned to warehouse' });
       await loadWorkOrder();
     } catch (err) {
-      logger.error('Error deallocating materials:', err);
+      logger.error('Error returning material:', err);
       setError(err.message);
     } finally {
       setAllocating(false);
@@ -166,8 +193,13 @@ function WorkOrderDetail() {
     }
   };
 
-  const handleRemoveMaterial = async (materialId) => {
-    if (!window.confirm('Remove this material from the work order?')) return;
+  const handleRemoveMaterial = (materialId) => {
+    setRemoveMaterialDialog({ open: true, materialId });
+  };
+
+  const handleConfirmRemoveMaterial = async () => {
+    const materialId = removeMaterialDialog.materialId;
+    setRemoveMaterialDialog({ open: false, materialId: null });
 
     try {
       setAllocating(true);
@@ -182,67 +214,6 @@ function WorkOrderDetail() {
     }
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount || 0);
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Not scheduled';
-    // Parse date as local time, not UTC, to avoid timezone shifting
-    // Date string like "2025-01-05" should display as January 5, not January 4
-    const parts = dateString.split('-');
-    if (parts.length === 3) {
-      const date = new Date(parts[0], parts[1] - 1, parts[2]); // year, month (0-indexed), day
-      return date.toLocaleDateString('en-US', {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
-      });
-    }
-    // Fallback for other formats
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  const getStockStatusColor = (status) => {
-    const colors = {
-      in_stock: 'success',
-      partial: 'warning',
-      out_of_stock: 'error',
-      checking: 'default',
-    };
-    return colors[status] || 'default';
-  };
-
-  const getMaterialStatusColor = (status) => {
-    const colors = {
-      planned: 'default',
-      allocated: 'info',
-      loaded: 'primary',
-      used: 'success',
-      returned: 'warning',
-    };
-    return colors[status] || 'default';
-  };
-
-  const groupMaterialsByCategory = (materials) => {
-    const grouped = {};
-    materials.forEach(material => {
-      const category = material.category || 'Uncategorized';
-      if (!grouped[category]) {
-        grouped[category] = [];
-      }
-      grouped[category].push(material);
-    });
-    return grouped;
-  };
 
   if (loading) {
     return (
@@ -263,14 +234,8 @@ function WorkOrderDetail() {
   const groupedMaterials = groupMaterialsByCategory(workOrder.materials || []);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
-      <AppHeader title={`WO ${workOrder.work_order_number}`}>
-        <IconButton
-          onClick={() => navigate('/work-orders')}
-          sx={{ color: 'white' }}
-        >
-          <ArrowBackIcon />
-        </IconButton>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default', overflowX: 'hidden', maxWidth: '100vw' }}>
+      <AppHeader title={workOrder.service_address || 'No Address'} subtitle={`${workOrder.work_order_number} - Customer: ${workOrder.customer_name || 'Unknown'}`}>
         <Button
           variant="contained"
           size="small"
@@ -301,6 +266,21 @@ function WorkOrderDetail() {
         >
           Edit
         </Button>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<DeleteIcon />}
+          onClick={() => setDeleteDialogOpen(true)}
+          sx={{
+            mr: 1,
+            bgcolor: '#f44336',
+            color: 'white',
+            textTransform: 'none',
+            '&:hover': { bgcolor: '#e57373' },
+          }}
+        >
+          Delete
+        </Button>
         <Chip
           label={workOrder.status?.replace('_', ' ').toUpperCase()}
           size="small"
@@ -308,7 +288,7 @@ function WorkOrderDetail() {
         />
       </AppHeader>
 
-      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+      <Container maxWidth="xl" sx={{ mt: 2, mb: 4, px: { xs: 1, sm: 2, md: 3 } }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
             {error}
@@ -404,20 +384,20 @@ function WorkOrderDetail() {
                 <Typography variant="h6" gutterBottom>Quote Summary</Typography>
                 <Divider sx={{ mb: 2 }} />
                 <Grid container spacing={2}>
-                  <Grid item xs={3}>
+                  <Grid item xs={6} sm={3}>
                     <Typography variant="body2" color="text.secondary">Labor</Typography>
                     <Typography variant="h6">{formatCurrency(workOrder.quoted_labor_cost)}</Typography>
-                    <Typography variant="caption">{workOrder.quoted_labor_hours} hours @ {formatCurrency(workOrder.quoted_labor_rate)}/hr</Typography>
+                    <Typography variant="caption">{workOrder.quoted_labor_hours}h @ {formatCurrency(workOrder.quoted_labor_rate)}/hr</Typography>
                   </Grid>
-                  <Grid item xs={3}>
+                  <Grid item xs={6} sm={3}>
                     <Typography variant="body2" color="text.secondary">Materials</Typography>
                     <Typography variant="h6">{formatCurrency(workOrder.quoted_material_cost)}</Typography>
                   </Grid>
-                  <Grid item xs={3}>
+                  <Grid item xs={6} sm={3}>
                     <Typography variant="body2" color="text.secondary">Subtotal</Typography>
                     <Typography variant="h6">{formatCurrency(workOrder.quoted_subtotal)}</Typography>
                   </Grid>
-                  <Grid item xs={3}>
+                  <Grid item xs={6} sm={3}>
                     <Typography variant="body2" color="text.secondary">Permit</Typography>
                     <Typography variant="body1">
                       {workOrder.permit_required ? `Yes - ${workOrder.permit_number || 'Pending'}` : 'No'}
@@ -431,147 +411,178 @@ function WorkOrderDetail() {
 
         {/* Materials List */}
         <Paper elevation={3} sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
               Materials ({workOrder.materials?.length || 0} items)
             </Typography>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setAddMaterialDialogOpen(true)}
-                sx={{ bgcolor: '#FF6B00', '&:hover': { bgcolor: '#ff8533' } }}
-              >
-                Add Material
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={handleDeallocate}
-                disabled={selectedMaterials.length === 0 || allocating}
-              >
-                Return ({selectedMaterials.length})
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleAllocate}
-                disabled={selectedMaterials.length === 0 || allocating}
-                startIcon={allocating ? <CircularProgress size={20} /> : <CheckCircleIcon />}
-              >
-                Allocate ({selectedMaterials.length})
-              </Button>
-            </Box>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setAddMaterialDialogOpen(true)}
+              sx={{ bgcolor: '#FF6B00', '&:hover': { bgcolor: '#E55F00' } }}
+            >
+              Add Material
+            </Button>
           </Box>
 
-          {Object.entries(groupedMaterials).map(([category, materials]) => (
-            <Box key={category} sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1, color: '#FF6B00' }}>
-                {category} ({materials.length})
-              </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell padding="checkbox">
-                        <Checkbox
-                          indeterminate={
-                            selectedMaterials.length > 0 &&
-                            selectedMaterials.length < workOrder.materials.length
-                          }
-                          checked={selectedMaterials.length === workOrder.materials.length}
-                          onChange={handleSelectAll}
-                        />
-                      </TableCell>
-                      <TableCell>Item ID</TableCell>
-                      <TableCell>Description</TableCell>
-                      <TableCell align="center">Needed</TableCell>
-                      <TableCell align="center">Allocated</TableCell>
-                      <TableCell align="center">Available</TableCell>
-                      <TableCell align="center">Stock Status</TableCell>
-                      <TableCell align="center">Status</TableCell>
-                      <TableCell align="right">Unit Price</TableCell>
-                      <TableCell align="right">Line Total</TableCell>
-                      <TableCell align="center">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {materials.map((material) => (
-                      <TableRow
-                        key={material.id}
-                        hover
+          {Object.entries(groupedMaterials).length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+              No materials assigned to this work order yet.
+            </Typography>
+          ) : (
+            Object.entries(groupedMaterials).map(([category, materials]) => (
+              <Box key={category} sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1, color: '#FF6B00' }}>
+                  {category} ({materials.length})
+                </Typography>
+                <List sx={{ bgcolor: 'background.paper', borderRadius: 1 }}>
+                  {materials.map((material, index) => (
+                    <React.Fragment key={material.id}>
+                      {index > 0 && <Divider />}
+                      <ListItem
                         sx={{
+                          flexDirection: 'column',
+                          alignItems: 'flex-start',
+                          py: 2,
                           bgcolor: material.quantity_allocated >= material.quantity_needed
                             ? 'rgba(76, 175, 80, 0.05)'
                             : 'inherit'
                         }}
                       >
-                        <TableCell padding="checkbox">
-                          <Checkbox
-                            checked={selectedMaterials.includes(material.id)}
-                            onChange={() => handleSelectMaterial(material.id)}
+                        <Box sx={{ width: '100%' }}>
+                          <ListItemText
+                            primary={
+                              <Box>
+                                <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                                  {material.item_id} - {material.description}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {material.brand}
+                                </Typography>
+                              </Box>
+                            }
+                            secondary={
+                              <Box sx={{ mt: 1 }}>
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                                  <Chip
+                                    label={`Qty: ${material.quantity_needed}`}
+                                    size="small"
+                                    color="primary"
+                                    sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}
+                                  />
+                                  <Chip
+                                    label={`Available: ${material.available_qty || 0}`}
+                                    size="small"
+                                    color={getStockStatusColor(material.stock_status)}
+                                  />
+                                  <Chip
+                                    label={material.status?.replace('_', ' ').toUpperCase()}
+                                    size="small"
+                                    color={getMaterialStatusColor(material.status)}
+                                    variant="outlined"
+                                  />
+                                  <Chip
+                                    label={formatCurrency(material.quantity_needed * material.unit_price)}
+                                    size="small"
+                                    variant="outlined"
+                                  />
+                                </Box>
+                                {/* Location prominently displayed */}
+                                <Box sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  bgcolor: '#FFF3E0',
+                                  p: 1,
+                                  borderRadius: 1,
+                                  mt: 1
+                                }}>
+                                  <LocationIcon sx={{ mr: 1, color: '#FF6B00' }} />
+                                  <Typography variant="body1" sx={{ fontWeight: 'bold', color: '#FF6B00' }}>
+                                    Location: {material.location || 'Unknown'}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            }
                           />
-                        </TableCell>
-                        <TableCell>{material.item_id}</TableCell>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            {material.brand} {material.description}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {material.location} | {material.qty_per}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                            {material.quantity_needed}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Typography variant="body2" color={material.quantity_allocated > 0 ? 'success.main' : 'text.secondary'}>
-                            {material.quantity_allocated}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Typography
-                            variant="body2"
-                            color={material.available_qty >= material.quantity_needed ? 'success.main' : 'error.main'}
-                          >
-                            {material.available_qty}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            label={material.stock_status?.replace('_', ' ').toUpperCase()}
-                            color={getStockStatusColor(material.stock_status)}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            label={material.status?.toUpperCase()}
-                            color={getMaterialStatusColor(material.status)}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell align="right">{formatCurrency(material.unit_price)}</TableCell>
-                        <TableCell align="right">
-                          {formatCurrency(material.quantity_needed * material.unit_price)}
-                        </TableCell>
-                        <TableCell align="center">
+                        </Box>
+                        {/* Action buttons */}
+                        <Box sx={{ width: '100%', mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                            {material.acquired_in_field ? (
+                              <Chip
+                                label="Acquired in Field"
+                                color="info"
+                                size="small"
+                                sx={{ fontWeight: 'bold' }}
+                              />
+                            ) : (material.status === 'allocated' || material.status === 'used') ? (
+                              <Button
+                                variant="outlined"
+                                color="warning"
+                                size="small"
+                                startIcon={allocating ? <CircularProgress size={16} color="inherit" /> : <InventoryIcon />}
+                                onClick={() => handleReturnMaterial(material.id)}
+                                disabled={allocating}
+                              >
+                                Return
+                              </Button>
+                            ) : material.status === 'planned' ? (
+                              <>
+                                {material.available_qty === 0 && (
+                                  <Chip
+                                    label="Out of Stock"
+                                    color="error"
+                                    size="small"
+                                  />
+                                )}
+                                {(material.quantity_allocated > 0 && material.quantity_allocated < material.quantity_needed) && (
+                                  <Chip
+                                    label={`${material.quantity_allocated}/${material.quantity_needed} allocated`}
+                                    color="warning"
+                                    size="small"
+                                    sx={{ fontWeight: 'bold' }}
+                                  />
+                                )}
+                                {material.available_qty > 0 && (
+                                  <Button
+                                    variant="contained"
+                                    color="success"
+                                    size="small"
+                                    startIcon={<InventoryIcon />}
+                                    onClick={() => openPullDialog(material)}
+                                  >
+                                    Pull
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="contained"
+                                  color="info"
+                                  size="small"
+                                  startIcon={<ShoppingCartIcon />}
+                                  onClick={() => openGotItDialog(material)}
+                                >
+                                  Got It
+                                </Button>
+                              </>
+                            ) : null}
+                          </Box>
                           <IconButton
                             onClick={() => handleRemoveMaterial(material.id)}
                             size="small"
                             color="error"
                             disabled={allocating}
+                            title="Remove material"
                           >
                             <DeleteIcon />
                           </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
-          ))}
+                        </Box>
+                      </ListItem>
+                    </React.Fragment>
+                  ))}
+                </List>
+              </Box>
+            ))
+          )}
         </Paper>
         {/* Tasks / Scope of Work */}
         <Box sx={{ mt: 3 }}>
@@ -604,6 +615,163 @@ function WorkOrderDetail() {
           onClose={() => setEditDialogOpen(false)}
           onUpdated={loadWorkOrder}
           workOrder={workOrder}
+        />
+
+        {/* Material Action Dialog (Pull / Got It) */}
+        <Dialog
+          open={!!materialActionDialog}
+          onClose={closeMaterialActionDialog}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {materialActionDialog?.action === 'pull' ? (
+              <>
+                <InventoryIcon color="success" />
+                Pull from Warehouse
+              </>
+            ) : (
+              <>
+                <ShoppingCartIcon color="info" />
+                Mark as Acquired
+              </>
+            )}
+          </DialogTitle>
+          <DialogContent>
+            {materialActionDialog && (
+              <Box sx={{ pt: 1 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2 }}>
+                  {materialActionDialog.material.item_id} - {materialActionDialog.material.description}
+                </Typography>
+
+                <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                  <Chip label={`Needed: ${materialActionDialog.material.quantity_needed}`} size="small" />
+                  <Chip label={`Allocated: ${materialActionDialog.material.quantity_allocated || 0}`} size="small" color="primary" />
+                  {materialActionDialog.action === 'pull' && (
+                    <Chip label={`Available: ${materialActionDialog.material.available_qty || 0}`} size="small" color="success" />
+                  )}
+                </Box>
+
+                <TextField
+                  label="Quantity"
+                  type="number"
+                  value={actionQuantity}
+                  onChange={(e) => setActionQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  inputProps={{
+                    min: 1,
+                    max: materialActionDialog.action === 'pull'
+                      ? Math.min(
+                          materialActionDialog.material.quantity_needed - (materialActionDialog.material.quantity_allocated || 0),
+                          materialActionDialog.material.available_qty || 0
+                        )
+                      : materialActionDialog.material.quantity_needed - (materialActionDialog.material.quantity_allocated || 0)
+                  }}
+                  helperText={
+                    materialActionDialog.action === 'pull'
+                      ? `Max: ${Math.min(materialActionDialog.material.quantity_needed - (materialActionDialog.material.quantity_allocated || 0), materialActionDialog.material.available_qty || 0)}`
+                      : `Remaining needed: ${materialActionDialog.material.quantity_needed - (materialActionDialog.material.quantity_allocated || 0)}`
+                  }
+                />
+
+                {materialActionDialog.action === 'gotit' && (
+                  <TextField
+                    label="Cost (Optional)"
+                    type="number"
+                    value={actionCost}
+                    onChange={(e) => setActionCost(e.target.value)}
+                    fullWidth
+                    placeholder="Enter cost if known"
+                    helperText="Accountant can fill this in later"
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                )}
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ p: 2, gap: 1 }}>
+            <Button
+              onClick={closeMaterialActionDialog}
+              size="large"
+              sx={{ minWidth: 100 }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleMaterialAction}
+              variant="contained"
+              size="large"
+              disabled={processingAction || actionQuantity < 1}
+              color={materialActionDialog?.action === 'pull' ? 'success' : 'info'}
+              startIcon={processingAction ? <CircularProgress size={20} /> : null}
+              sx={{ minWidth: 120 }}
+            >
+              {processingAction ? 'Processing...' : materialActionDialog?.action === 'pull' ? 'Pull' : 'Got It'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+          <DialogTitle>Delete Work Order?</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to delete work order <strong>{workOrder?.work_order_number}</strong>?
+            </Typography>
+            <Typography color="error" sx={{ mt: 2 }}>
+              This will permanently delete:
+            </Typography>
+            <Typography component="ul" sx={{ pl: 2 }}>
+              <li>All time entries</li>
+              <li>All schedule assignments</li>
+              <li>All materials</li>
+              <li>All tasks and notes</li>
+              <li>All photos</li>
+            </Typography>
+            <Typography color="error" sx={{ mt: 2, fontWeight: 'bold' }}>
+              This action cannot be undone.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteWorkOrder}
+              color="error"
+              variant="contained"
+              disabled={deleting}
+            >
+              {deleting ? <CircularProgress size={20} /> : 'Delete'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Success Snackbar */}
+        {allocationResult?.message && (
+          <Snackbar
+            open={!!allocationResult?.message}
+            autoHideDuration={4000}
+            onClose={() => setAllocationResult(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          >
+            <Alert onClose={() => setAllocationResult(null)} severity="success" sx={{ width: '100%' }}>
+              {allocationResult.message}
+            </Alert>
+          </Snackbar>
+        )}
+
+        {/* Remove Material Confirmation */}
+        <ConfirmDialog
+          open={removeMaterialDialog.open}
+          onClose={() => setRemoveMaterialDialog({ open: false, materialId: null })}
+          onConfirm={handleConfirmRemoveMaterial}
+          title="Remove Material"
+          message="Remove this material from the work order?"
+          confirmText="Remove"
+          confirmColor="error"
+          severity="warning"
         />
       </Container>
     </Box>

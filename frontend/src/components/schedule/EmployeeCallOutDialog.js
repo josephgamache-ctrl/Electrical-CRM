@@ -284,10 +284,11 @@ function EmployeeCallOutDialog({ open, onClose, employee, selectedDate, onSucces
                       <ListItem
                         key={idx}
                         sx={{
-                          bgcolor: job.needs_reassignment ? '#ffebee' : '#fff',
+                          bgcolor: job.needs_reassignment ? 'error.light' : 'background.paper',
                           borderRadius: 1,
                           mb: 0.5,
-                          border: job.needs_reassignment ? '1px solid #ffcdd2' : '1px solid #e0e0e0',
+                          border: 1,
+                          borderColor: job.needs_reassignment ? 'error.main' : 'divider',
                         }}
                       >
                         <ListItemIcon>
@@ -378,7 +379,7 @@ function EmployeeCallOutDialog({ open, onClose, employee, selectedDate, onSucces
                           <ListItem
                             key={idx}
                             sx={{
-                              bgcolor: emp.is_free ? '#e8f5e9' : '#fff3e0',
+                              bgcolor: emp.is_free ? 'success.light' : 'warning.light',
                               borderRadius: 1,
                               mb: 0.5,
                             }}

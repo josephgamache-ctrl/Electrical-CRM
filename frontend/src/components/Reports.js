@@ -119,12 +119,12 @@ function Reports() {
                   <Card>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <MoneyIcon sx={{ color: '#4caf50', mr: 1 }} />
+                        <MoneyIcon sx={{ color: 'success.main', mr: 1 }} />
                         <Typography variant="caption" color="text.secondary">
                           Completed Revenue
                         </Typography>
                       </Box>
-                      <Typography variant="h5" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
+                      <Typography variant="h5" sx={{ color: 'success.main', fontWeight: 'bold' }}>
                         {formatCurrency(snapshot.completed_revenue)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -139,12 +139,12 @@ function Reports() {
                   <Card>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <TrendingUpIcon sx={{ color: '#2196f3', mr: 1 }} />
+                        <TrendingUpIcon sx={{ color: 'info.main', mr: 1 }} />
                         <Typography variant="caption" color="text.secondary">
                           Gross Profit
                         </Typography>
                       </Box>
-                      <Typography variant="h5" sx={{ color: '#2196f3', fontWeight: 'bold' }}>
+                      <Typography variant="h5" sx={{ color: 'info.main', fontWeight: 'bold' }}>
                         {formatCurrency(snapshot.completed_gross_profit)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -159,12 +159,12 @@ function Reports() {
                   <Card>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <PeopleIcon sx={{ color: '#ff9800', mr: 1 }} />
+                        <PeopleIcon sx={{ color: 'warning.main', mr: 1 }} />
                         <Typography variant="caption" color="text.secondary">
                           Jobs
                         </Typography>
                       </Box>
-                      <Typography variant="h5" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
+                      <Typography variant="h5" sx={{ color: 'warning.main', fontWeight: 'bold' }}>
                         {snapshot.total_jobs}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -179,12 +179,12 @@ function Reports() {
                   <Card>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <InventoryIcon sx={{ color: '#9c27b0', mr: 1 }} />
+                        <InventoryIcon sx={{ color: 'secondary.main', mr: 1 }} />
                         <Typography variant="caption" color="text.secondary">
                           Inventory Value
                         </Typography>
                       </Box>
-                      <Typography variant="h5" sx={{ color: '#9c27b0', fontWeight: 'bold' }}>
+                      <Typography variant="h5" sx={{ color: 'secondary.main', fontWeight: 'bold' }}>
                         {formatCurrency(snapshot.inventory_value)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -207,7 +207,7 @@ function Reports() {
                       <Typography variant="caption" color="text.secondary">
                         Total Labor Cost
                       </Typography>
-                      <Typography variant="h6" sx={{ color: '#f44336' }}>
+                      <Typography variant="h6" sx={{ color: 'error.main' }}>
                         {formatCurrency(snapshot.total_labor_cost)}
                       </Typography>
                     </CardContent>
@@ -219,7 +219,7 @@ function Reports() {
                       <Typography variant="caption" color="text.secondary">
                         Total Labor Revenue
                       </Typography>
-                      <Typography variant="h6" sx={{ color: '#4caf50' }}>
+                      <Typography variant="h6" sx={{ color: 'success.main' }}>
                         {formatCurrency(snapshot.total_labor_revenue)}
                       </Typography>
                     </CardContent>
@@ -231,7 +231,7 @@ function Reports() {
                       <Typography variant="caption" color="text.secondary">
                         Labor Margin
                       </Typography>
-                      <Typography variant="h6" sx={{ color: '#2196f3' }}>
+                      <Typography variant="h6" sx={{ color: 'info.main' }}>
                         {snapshot.total_labor_revenue > 0
                           ? (((snapshot.total_labor_revenue - snapshot.total_labor_cost) / snapshot.total_labor_revenue) * 100).toFixed(1)
                           : 0}%
@@ -260,24 +260,24 @@ function Reports() {
                   </Card>
                 </Grid>
                 <Grid item xs={12} sm={4}>
-                  <Card sx={{ bgcolor: '#e8f5e9' }}>
+                  <Card sx={{ bgcolor: 'success.light' }}>
                     <CardContent>
                       <Typography variant="caption" color="text.secondary">
                         Paid
                       </Typography>
-                      <Typography variant="h6" sx={{ color: '#4caf50' }}>
+                      <Typography variant="h6" sx={{ color: 'success.main' }}>
                         {formatCurrency(snapshot.total_paid)}
                       </Typography>
                     </CardContent>
                   </Card>
                 </Grid>
                 <Grid item xs={12} sm={4}>
-                  <Card sx={{ bgcolor: snapshot.outstanding_invoices > 0 ? '#fff3e0' : 'white' }}>
+                  <Card sx={{ bgcolor: snapshot.outstanding_invoices > 0 ? 'warning.light' : 'background.paper' }}>
                     <CardContent>
                       <Typography variant="caption" color="text.secondary">
                         Outstanding
                       </Typography>
-                      <Typography variant="h6" sx={{ color: snapshot.outstanding_invoices > 0 ? '#ff9800' : 'inherit' }}>
+                      <Typography variant="h6" sx={{ color: snapshot.outstanding_invoices > 0 ? 'warning.main' : 'inherit' }}>
                         {formatCurrency(snapshot.outstanding_invoices)}
                       </Typography>
                     </CardContent>

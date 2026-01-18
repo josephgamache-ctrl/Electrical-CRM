@@ -114,9 +114,9 @@ function ScheduleDispatch({ userRole }) {
   const [callOutDialogOpen, setCallOutDialogOpen] = useState(false);
   const [employeeToCallOut, setEmployeeToCallOut] = useState(null);
 
-  // Filter state - default to unassigned jobs
+  // Filter state - default to unscheduled jobs (jobs needing scheduling attention)
   const [filterPriority, setFilterPriority] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('unassigned');
+  const [filterStatus, setFilterStatus] = useState('unscheduled');
 
   // Drag and drop state
   const [draggedJob, setDraggedJob] = useState(null);
@@ -141,15 +141,84 @@ function ScheduleDispatch({ userRole }) {
     return [...allJobs].sort((a, b) => {
       const priorityDiff = getJobPriority(a) - getJobPriority(b);
       if (priorityDiff !== 0) return priorityDiff;
-      // Secondary sort by date
-      return (a.scheduled_date || '').localeCompare(b.scheduled_date || '');
+      // Secondary sort by start_date (oldest first for scheduling priority)
+      const dateA = a.start_date || a.scheduled_date || '';
+      const dateB = b.start_date || b.scheduled_date || '';
+      return dateA.localeCompare(dateB);
     });
   }, [allJobs]);
 
-  // For backwards compatibility - unassigned jobs only
-  const unassignedJobs = useMemo(() => {
-    return allJobs.filter(wo => !wo.assigned_to && wo.status !== 'completed');
+  // Unscheduled jobs - jobs that need scheduling (not cancelled, completed, or delayed)
+  // These are jobs that exist but aren't actively scheduled yet
+  // Sorted by oldest start_date first (oldest jobs needing attention first)
+  const unscheduledJobs = useMemo(() => {
+    const excludedStatuses = ['completed', 'cancelled', 'delayed', 'invoiced'];
+    return allJobs
+      .filter(wo => !excludedStatuses.includes(wo.status))
+      .sort((a, b) => {
+        // Sort by start_date ascending (oldest first)
+        const dateA = a.start_date || a.scheduled_date || '9999-99-99';
+        const dateB = b.start_date || b.scheduled_date || '9999-99-99';
+        return dateA.localeCompare(dateB);
+      });
   }, [allJobs]);
+
+  // Helper to check if a job has crew scheduled for the selected date
+  // Uses scheduleEntries from context which contains per-employee schedule data
+  const getCrewCountForJobOnDate = useCallback((workOrderId, date = selectedDate) => {
+    const count = scheduleEntries.filter(entry =>
+      entry.work_order_id === workOrderId &&
+      entry.scheduled_date === date
+    ).length;
+    return count;
+  }, [scheduleEntries, selectedDate]);
+
+  // Unassigned jobs - jobs whose start date has arrived but have NO crew scheduled for today
+  // These need immediate attention for crew assignment
+  // NOTE: scheduleEntries is explicitly in deps to ensure recomputation when schedule data loads
+  const unassignedJobs = useMemo(() => {
+    const excludedStatuses = ['completed', 'cancelled', 'invoiced', 'paid'];
+
+    // Filter jobs that need crew assignment for today
+    return allJobs
+      .filter(wo => {
+        // Must not be in excluded statuses
+        if (excludedStatuses.includes(wo.status)) return false;
+
+        // Handle delayed status with new delay system
+        if (wo.status === 'delayed') {
+          // If indefinitely delayed (no end date), exclude from unassigned
+          if (wo.delay_start_date && !wo.delay_end_date) return false;
+
+          // If date-range delayed, check if selected date is within delay period
+          if (wo.delay_start_date && wo.delay_end_date) {
+            // If selected date is within delay range, exclude this job
+            if (selectedDate >= wo.delay_start_date && selectedDate <= wo.delay_end_date) {
+              return false;
+            }
+            // Date is outside delay range - job can be scheduled
+          }
+        }
+
+        // Start date must have arrived (today or past)
+        const woStartDate = wo.start_date || wo.scheduled_date;
+        if (!woStartDate || woStartDate > selectedDate) return false;
+
+        // Must have NO crew scheduled for today - check scheduleEntries directly
+        const crewCount = scheduleEntries.filter(entry =>
+          entry.work_order_id === wo.id &&
+          entry.scheduled_date === selectedDate
+        ).length;
+        return crewCount === 0;
+      })
+      .sort((a, b) => {
+        // Sort by start_date ascending (oldest first - most urgent)
+        const dateA = a.start_date || a.scheduled_date || '9999-99-99';
+        const dateB = b.start_date || b.scheduled_date || '9999-99-99';
+        return dateA.localeCompare(dateB);
+      });
+  }, [allJobs, selectedDate, scheduleEntries]);
+
 
   // Get jobs for a specific date by employee (used for single date view)
   const getJobsForEmployeeOnDate = useCallback((username, date = selectedDate) => {
@@ -203,19 +272,36 @@ function ScheduleDispatch({ userRole }) {
   }, [employees]);
 
   // Filter jobs for dispatch panel (all jobs, filtered and ordered)
+  // 'unscheduled' filter shows jobs not cancelled/completed/delayed/invoiced, sorted by oldest start_date
+  // 'unassigned' filter shows jobs whose start date has arrived but have no crew scheduled for today
   const filteredUnassignedJobs = useMemo(() => {
+    // For 'unscheduled' filter, use the pre-sorted unscheduledJobs list
+    if (filterStatus === 'unscheduled') {
+      return unscheduledJobs.filter(job => {
+        if (filterPriority !== 'all' && job.priority !== filterPriority) return false;
+        return true;
+      });
+    }
+
+    // For 'unassigned' filter, use jobs with no crew scheduled for today
+    if (filterStatus === 'unassigned') {
+      return unassignedJobs.filter(job => {
+        if (filterPriority !== 'all' && job.priority !== filterPriority) return false;
+        return true;
+      });
+    }
+
+    // For other filters, use dispatchJobs
     return dispatchJobs.filter(job => {
       if (filterPriority !== 'all' && job.priority !== filterPriority) return false;
       if (filterStatus !== 'all') {
-        if (filterStatus === 'unassigned') {
-          if (job.assigned_to) return false;
-        } else if (job.status !== filterStatus) {
+        if (job.status !== filterStatus) {
           return false;
         }
       }
       return true;
     });
-  }, [dispatchJobs, filterPriority, filterStatus]);
+  }, [dispatchJobs, unscheduledJobs, unassignedJobs, filterPriority, filterStatus]);
 
   // Simple single-day navigation
   const goToPreviousDay = () => {
@@ -368,7 +454,9 @@ function ScheduleDispatch({ userRole }) {
         if (response.ok) {
           const data = await response.json();
           if (data.has_conflicts) {
-            data.conflicts.forEach(conflict => {
+            // API returns job_conflicts and unavailability_conflicts arrays
+            const conflicts = [...(data.job_conflicts || []), ...(data.unavailability_conflicts || [])];
+            conflicts.forEach(conflict => {
               // Only add if not one of the jobs being assigned
               if (!selectedJobIds.has(conflict.work_order_id)) {
                 allConflicts.push({
@@ -540,13 +628,15 @@ function ScheduleDispatch({ userRole }) {
   };
 
   // Handle success from ModifyCrewDialog
-  const handleModifyCrewSuccess = (result) => {
+  const handleModifyCrewSuccess = async (result) => {
     setSnackbar({
       open: true,
       message: result.message,
       severity: 'success'
     });
     setJobToModify(null);
+    // Ensure schedule data is refreshed to show updates
+    await refreshSchedule();
   };
 
   const getStatusColor = (status) => {
@@ -583,7 +673,7 @@ function ScheduleDispatch({ userRole }) {
   }
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 2 }, bgcolor: '#f5f5f5', minHeight: 'calc(100vh - 180px)' }}>
+    <Box sx={{ p: { xs: 1, sm: 2 }, bgcolor: 'background.default', minHeight: 'calc(100vh - 180px)' }}>
       {/* Date Navigation Header - Single Day View */}
       <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
@@ -689,6 +779,7 @@ function ScheduleDispatch({ userRole }) {
                   onChange={(e) => setFilterStatus(e.target.value)}
                 >
                   <MenuItem value="all">All Jobs</MenuItem>
+                  <MenuItem value="unscheduled">Unscheduled</MenuItem>
                   <MenuItem value="unassigned">Unassigned</MenuItem>
                   <MenuItem value="in_progress">In Progress</MenuItem>
                   <MenuItem value="scheduled">Scheduled</MenuItem>
@@ -728,21 +819,21 @@ function ScheduleDispatch({ userRole }) {
                 const isCompleted = job.status === 'completed';
                 const isInProgress = job.status === 'in_progress';
 
-                // Determine card styling based on status
+                // Determine card styling based on status - using theme tokens for dark mode
                 const getCardBgColor = () => {
-                  if (selectedJobIds.has(job.id)) return '#e3f2fd';
-                  if (isCompleted) return '#f5f5f5'; // Muted gray for completed
-                  if (isUnassigned) return '#fff3e0'; // Light orange for unassigned (needs attention)
-                  if (isInProgress) return '#e8f5e9'; // Light green for in progress
-                  return '#fff';
+                  if (selectedJobIds.has(job.id)) return 'primary.light';
+                  if (isCompleted) return 'action.disabledBackground'; // Muted for completed
+                  if (isUnassigned) return 'warning.light'; // Orange for unassigned (needs attention)
+                  if (isInProgress) return 'success.light'; // Green for in progress
+                  return 'background.paper';
                 };
 
                 const getBorderColor = () => {
-                  if (draggedJob?.id === job.id || selectedJobIds.has(job.id)) return '#1976d2';
-                  if (isCompleted) return '#bdbdbd';
-                  if (isUnassigned) return '#ff9800';
-                  if (isInProgress) return '#4caf50';
-                  return '#e0e0e0';
+                  if (draggedJob?.id === job.id || selectedJobIds.has(job.id)) return 'primary.main';
+                  if (isCompleted) return 'grey.400';
+                  if (isUnassigned) return 'warning.main';
+                  if (isInProgress) return 'success.main';
+                  return 'divider';
                 };
 
                 return (
@@ -755,11 +846,13 @@ function ScheduleDispatch({ userRole }) {
                       mb: 1,
                       bgcolor: getCardBgColor(),
                       borderRadius: '8px',
-                      border: `${draggedJob?.id === job.id || selectedJobIds.has(job.id) ? '2px' : '1px'} solid ${getBorderColor()}`,
+                      border: draggedJob?.id === job.id || selectedJobIds.has(job.id) ? 2 : 1,
+                      borderStyle: 'solid',
+                      borderColor: getBorderColor(),
                       cursor: bulkSelectMode ? 'pointer' : 'grab',
                       opacity: isCompleted ? 0.7 : 1,
                       '&:hover': {
-                        bgcolor: selectedJobIds.has(job.id) ? '#bbdefb' : (isCompleted ? '#eeeeee' : '#f5f5f5'),
+                        bgcolor: selectedJobIds.has(job.id) ? 'primary.light' : 'action.hover',
                       },
                       p: 1,
                     }}
@@ -785,7 +878,7 @@ function ScheduleDispatch({ userRole }) {
                             <Chip label="!" size="small" color="error" sx={{ height: 16, fontSize: '0.65rem', minWidth: 20 }} />
                           )}
                           {isCompleted && (
-                            <Chip label="Done" size="small" sx={{ height: 16, fontSize: '0.6rem', bgcolor: '#9e9e9e', color: '#fff' }} />
+                            <Chip label="Done" size="small" sx={{ height: 16, fontSize: '0.6rem', bgcolor: 'grey.500', color: 'grey.contrastText' }} />
                           )}
                           {isInProgress && (
                             <Chip label="Active" size="small" color="success" sx={{ height: 16, fontSize: '0.6rem' }} />
@@ -887,9 +980,11 @@ function ScheduleDispatch({ userRole }) {
                     key={key}
                     sx={{
                       mb: 1,
-                      bgcolor: '#f5f5f5',
+                      bgcolor: 'background.default',
                       borderRadius: '6px',
-                      border: '1px solid #e0e0e0',
+                      border: 1,
+                      borderStyle: 'solid',
+                      borderColor: 'divider',
                       py: 1,
                       px: 1.5,
                     }}
@@ -985,15 +1080,17 @@ function ScheduleDispatch({ userRole }) {
                       display: 'flex',
                       flexDirection: 'column',
                       bgcolor: isUnavailable
-                        ? '#ffebee'  // Red tint for unavailable
+                        ? 'error.light'  // Red tint for unavailable
                         : draggedJob
-                          ? (hasEntries ? '#fff' : '#e8f5e9')
-                          : '#fff',
-                      border: isUnavailable
-                        ? `2px solid ${unavailConfig?.color || '#f44336'}`
+                          ? (hasEntries ? 'background.paper' : 'success.light')
+                          : 'background.paper',
+                      border: isUnavailable ? 2 : hasEntries ? 2 : 1,
+                      borderStyle: 'solid',
+                      borderColor: isUnavailable
+                        ? (unavailConfig?.color || 'error.main')
                         : hasEntries
-                          ? '2px solid #2196f3'
-                          : '1px solid #e0e0e0',
+                          ? 'primary.main'
+                          : 'divider',
                       transition: 'all 0.2s',
                       overflow: 'hidden',
                       opacity: isUnavailable ? 0.85 : 1,
@@ -1036,7 +1133,7 @@ function ScheduleDispatch({ userRole }) {
                         color={isUnavailable ? 'error' : hasEntries ? 'primary' : 'default'}
                         overlap="circular"
                       >
-                        <Avatar sx={{ bgcolor: isUnavailable ? unavailConfig?.color : hasEntries ? '#2196f3' : '#9e9e9e' }}>
+                        <Avatar sx={{ bgcolor: isUnavailable ? unavailConfig?.color : hasEntries ? 'secondary.dark' : 'grey.500' }}>
                           {employee.full_name?.charAt(0) || employee.username.charAt(0)}
                         </Avatar>
                       </Badge>
@@ -1060,7 +1157,7 @@ function ScheduleDispatch({ userRole }) {
                             color="warning"
                             onClick={() => handleOpenCallOutDialog(employee)}
                             sx={{
-                              '&:hover': { bgcolor: '#fff3e0' },
+                              '&:hover': { bgcolor: 'warning.light' },
                             }}
                           >
                             <CallOutIcon fontSize="small" />
@@ -1092,9 +1189,10 @@ function ScheduleDispatch({ userRole }) {
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            border: '2px dashed #e0e0e0',
+                            border: '2px dashed',
+                            borderColor: 'divider',
                             borderRadius: 2,
-                            bgcolor: draggedJob ? '#e3f2fd' : 'transparent',
+                            bgcolor: draggedJob ? 'primary.light' : 'transparent',
                           }}
                         >
                           <Typography variant="body2" color="text.secondary" align="center">
@@ -1213,7 +1311,7 @@ function ScheduleDispatch({ userRole }) {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle sx={{ bgcolor: '#ff9800', color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DialogTitle sx={{ bgcolor: 'warning.main', color: 'warning.contrastText', display: 'flex', alignItems: 'center', gap: 1 }}>
           <WarningIcon />
           Schedule Conflict Detected
         </DialogTitle>
@@ -1227,7 +1325,7 @@ function ScheduleDispatch({ userRole }) {
             Conflicting Assignments:
           </Typography>
 
-          <List dense sx={{ bgcolor: '#f5f5f5', borderRadius: 1 }}>
+          <List dense sx={{ bgcolor: 'background.default', borderRadius: 1 }}>
             {bulkConflicts.map((conflict, index) => (
               <React.Fragment key={`${conflict.employee_username}-${conflict.date}-${index}`}>
                 {index > 0 && <Divider />}
@@ -1270,7 +1368,7 @@ function ScheduleDispatch({ userRole }) {
             </Typography>
           </Alert>
         </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: '1px solid #eee' }}>
+        <DialogActions sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
           <Button onClick={() => setBulkConflictDialogOpen(false)}>
             Cancel
           </Button>

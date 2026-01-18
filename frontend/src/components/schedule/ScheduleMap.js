@@ -393,7 +393,7 @@ function ScheduleMap({ userRole }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              bgcolor: 'rgba(255,255,255,0.8)',
+              bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.8)',
               zIndex: 1000,
             }}
           >

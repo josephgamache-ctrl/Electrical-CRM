@@ -12,7 +12,7 @@
 .report-header h1 {
   font-size: 28px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin: 0 0 8px 0;
   display: flex;
   align-items: center;
@@ -24,7 +24,7 @@
 }
 
 .report-subtitle {
-  color: #666;
+  color: var(--text-secondary, #666);
   margin: 0;
   font-size: 14px;
 }
@@ -36,7 +36,7 @@
   gap: 16px;
   margin-bottom: 24px;
   padding: 20px;
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
   border-radius: 12px;
 }
 
@@ -55,7 +55,7 @@
 .filter-label {
   font-size: 13px;
   font-weight: 600;
-  color: #555;
+  color: var(--text-secondary, #555);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -67,11 +67,12 @@
 
 .filter-select {
   padding: 10px 14px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color, #ddd);
   border-radius: 8px;
   font-size: 14px;
   min-width: 180px;
-  background: white;
+  background: var(--bg-paper, white);
+  color: var(--text-primary, inherit);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -95,7 +96,7 @@
 }
 
 .summary-card {
-  background: white;
+  background: var(--bg-paper, white);
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -139,7 +140,7 @@
 .card-label {
   font-size: 14px;
   font-weight: 600;
-  color: #555;
+  color: var(--text-secondary, #555);
   margin-bottom: 12px;
 }
 
@@ -156,17 +157,17 @@
 }
 
 .value-label {
-  color: #777;
+  color: var(--text-secondary, #777);
 }
 
 .value-amount {
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .value-row.variance {
   padding-top: 6px;
-  border-top: 1px dashed #ddd;
+  border-top: 1px dashed var(--border-color, #ddd);
   margin-top: 4px;
 }
 
@@ -192,7 +193,7 @@
 
 /* Jobs Table */
 .jobs-variance-table {
-  background: white;
+  background: var(--bg-paper, white);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   overflow: hidden;
@@ -203,14 +204,14 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color, #eee);
 }
 
 .table-header h2 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .jobs-count {
@@ -233,21 +234,21 @@
 }
 
 .variance-table th {
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
   padding: 12px 10px;
   text-align: left;
   font-size: 12px;
   font-weight: 600;
-  color: #555;
+  color: var(--text-secondary, #555);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 2px solid #e9ecef;
+  border-bottom: 2px solid var(--border-color, #e9ecef);
 }
 
 .variance-table th.group-header {
   text-align: center;
-  background: #e9ecef;
-  border-bottom: 1px solid #ddd;
+  background: var(--bg-hover, #e9ecef);
+  border-bottom: 1px solid var(--border-color, #ddd);
 }
 
 .variance-table th.hours-group {
@@ -272,12 +273,13 @@
 
 .variance-table td {
   padding: 14px 10px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color, #eee);
   font-size: 13px;
+  color: var(--text-primary, inherit);
 }
 
 .variance-table tbody tr:hover {
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
 }
 
 .variance-table tbody tr.clickable {
@@ -298,9 +300,9 @@
 .job-type-badge {
   font-size: 10px;
   padding: 2px 8px;
-  background: #e9ecef;
+  background: var(--bg-hover, #e9ecef);
   border-radius: 10px;
-  color: #555;
+  color: var(--text-secondary, #555);
   text-transform: capitalize;
   width: fit-content;
 }
@@ -362,7 +364,7 @@
 .no-data-message {
   padding: 60px 20px;
   text-align: center;
-  color: #888;
+  color: var(--text-secondary, #888);
 }
 
 .no-data-icon {
@@ -388,7 +390,7 @@
 }
 
 .modal-content {
-  background: white;
+  background: var(--bg-paper, white);
   border-radius: 16px;
   width: 100%;
   max-width: 900px;
@@ -402,10 +404,10 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color, #eee);
   position: sticky;
   top: 0;
-  background: white;
+  background: var(--bg-paper, white);
   z-index: 10;
 }
 
@@ -413,6 +415,7 @@
   margin: 0;
   font-size: 20px;
   font-weight: 600;
+  color: var(--text-primary, inherit);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -427,15 +430,15 @@
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #888;
+  color: var(--text-secondary, #888);
   padding: 8px;
   border-radius: 8px;
   transition: all 0.2s;
 }
 
 .modal-close:hover {
-  background: #f0f0f0;
-  color: #333;
+  background: var(--bg-hover, #f0f0f0);
+  color: var(--text-primary, #333);
 }
 
 .modal-body {
@@ -451,7 +454,7 @@
 .detail-section {
   margin-bottom: 24px;
   padding-bottom: 24px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color, #eee);
 }
 
 .detail-section:last-child {
@@ -463,7 +466,7 @@
 .section-title {
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary, #333);
   margin: 0 0 16px 0;
   display: flex;
   align-items: center;
@@ -489,18 +492,18 @@
 
 .info-label {
   font-weight: 600;
-  color: #555;
+  color: var(--text-secondary, #555);
   font-size: 13px;
 }
 
 .info-value {
-  color: #333;
+  color: var(--text-primary, #333);
   font-size: 13px;
 }
 
 /* Variance Grid in Modal */
 .variance-grid {
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
   border-radius: 8px;
   padding: 16px;
 }
@@ -517,15 +520,16 @@
 .variance-header {
   font-size: 12px;
   font-weight: 600;
-  color: #666;
+  color: var(--text-secondary, #666);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--border-color, #ddd);
 }
 
 .variance-row {
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color, #eee);
   font-size: 13px;
+  color: var(--text-primary, inherit);
 }
 
 .variance-row:last-child {
@@ -533,7 +537,7 @@
 }
 
 .variance-row.total-row {
-  background: #e9ecef;
+  background: var(--bg-hover, #e9ecef);
   margin: 8px -16px -16px;
   padding: 12px 16px;
   border-radius: 0 0 8px 8px;
@@ -542,7 +546,7 @@
 
 .variance-label {
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .variance-projected,
@@ -563,7 +567,7 @@
 .labor-detail-table,
 .schedule-detail-table,
 .history-detail-table {
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -572,10 +576,10 @@
   display: grid;
   gap: 12px;
   padding: 12px 16px;
-  background: #e9ecef;
+  background: var(--bg-hover, #e9ecef);
   font-size: 11px;
   font-weight: 600;
-  color: #555;
+  color: var(--text-secondary, #555);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -604,9 +608,10 @@
   display: grid;
   gap: 12px;
   padding: 12px 16px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color, #eee);
   font-size: 13px;
   align-items: center;
+  color: var(--text-primary, inherit);
 }
 
 .detail-table-row:last-child {
@@ -614,7 +619,7 @@
 }
 
 .detail-table-row:hover {
-  background: #f0f0f0;
+  background: var(--bg-default, #f0f0f0);
 }
 
 .item-name {
@@ -624,11 +629,11 @@
 .change-type {
   text-transform: capitalize;
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary, #666);
 }
 
 .no-data {
-  color: #888;
+  color: var(--text-secondary, #888);
   font-style: italic;
   padding: 20px;
   text-align: center;
@@ -646,7 +651,7 @@
 .loading-spinner {
   width: 48px;
   height: 48px;
-  border: 4px solid #e9ecef;
+  border: 4px solid var(--border-color, #e9ecef);
   border-top-color: #667eea;
   border-radius: 50%;
   animation: spin 1s linear infinite;

@@ -10,3 +10,4 @@ slowapi==0.1.9
 httpx==0.28.1
 twilio==9.3.0
 cryptography==42.0.0
+sendgrid==6.11.0

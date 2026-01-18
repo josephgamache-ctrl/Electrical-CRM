@@ -18,7 +18,7 @@
   margin: 0 0 8px 0;
   font-size: 24px;
   font-weight: 700;
-  color: #212529;
+  color: var(--text-primary, #212529);
 }
 
 .profit-loss-report .report-icon {
@@ -37,7 +37,7 @@
 .profit-loss-report .report-subtitle {
   margin: 0;
   font-size: 14px;
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
 }
 
 /* View Toggle */
@@ -47,7 +47,7 @@
   gap: 16px;
   margin-bottom: 24px;
   padding: 16px;
-  background: white;
+  background: var(--bg-paper, white);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -55,7 +55,7 @@
 .view-toggle {
   display: flex;
   gap: 8px;
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
   padding: 4px;
   border-radius: 8px;
 }
@@ -67,14 +67,14 @@
   background: transparent;
   font-size: 14px;
   font-weight: 600;
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .toggle-btn:hover {
-  color: #495057;
+  color: var(--text-primary, #495057);
 }
 
 .toggle-btn.active {
@@ -94,7 +94,7 @@
   gap: 8px;
   font-size: 14px;
   font-weight: 500;
-  color: #495057;
+  color: var(--text-primary, #495057);
   cursor: pointer;
 }
 
@@ -113,8 +113,8 @@
 }
 
 .group-by-filter {
-  background: white;
-  border: 1px solid #dee2e6;
+  background: var(--bg-paper, white);
+  border: 1px solid var(--border-color, #dee2e6);
   border-radius: 8px;
   padding: 16px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
@@ -125,17 +125,17 @@
   margin-bottom: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text-primary, #495057);
 }
 
 .group-by-filter .filter-select {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #ced4da;
+  border: 1px solid var(--border-color, #ced4da);
   border-radius: 6px;
   font-size: 14px;
-  color: #495057;
-  background-color: white;
+  color: var(--text-primary, #495057);
+  background-color: var(--bg-paper, white);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -153,7 +153,7 @@
   gap: 16px;
   margin-bottom: 24px;
   padding: 20px;
-  background: white;
+  background: var(--bg-paper, white);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -162,7 +162,7 @@
   margin: 0 0 8px 0;
   font-size: 14px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text-primary, #495057);
 }
 
 .date-inputs {
@@ -174,10 +174,11 @@
 
 .date-inputs input[type="date"] {
   padding: 10px 12px;
-  border: 1px solid #ced4da;
+  border: 1px solid var(--border-color, #ced4da);
   border-radius: 6px;
   font-size: 14px;
-  color: #495057;
+  color: var(--text-primary, #495057);
+  background-color: var(--bg-paper, white);
 }
 
 .date-inputs input[type="date"]:focus {
@@ -187,7 +188,7 @@
 }
 
 .date-inputs span {
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
   font-size: 14px;
 }
 
@@ -217,9 +218,9 @@
   margin: 0 0 16px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #212529;
+  color: var(--text-primary, #212529);
   padding-bottom: 8px;
-  border-bottom: 2px solid #e9ecef;
+  border-bottom: 2px solid var(--border-color, #e9ecef);
 }
 
 /* Summary Cards */
@@ -238,7 +239,7 @@
   align-items: flex-start;
   gap: 16px;
   padding: 20px;
-  background: white;
+  background: var(--bg-paper, white);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
@@ -285,7 +286,7 @@
 .profit-loss-report .card-label {
   font-size: 12px;
   font-weight: 600;
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 4px;
@@ -294,7 +295,7 @@
 .profit-loss-report .card-value {
   font-size: 28px;
   font-weight: 700;
-  color: #212529;
+  color: var(--text-primary, #212529);
   line-height: 1.2;
 }
 
@@ -308,7 +309,7 @@
   gap: 4px;
   margin-top: 8px;
   font-size: 12px;
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
 }
 
 .profit-loss-report .card-subtitle.margin {
@@ -321,7 +322,7 @@
 /* Itemized Section */
 .pl-itemized-section {
   margin-bottom: 24px;
-  background: white;
+  background: var(--bg-paper, white);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 20px;
@@ -348,9 +349,9 @@
   padding: 12px 16px;
   text-align: left;
   font-weight: 600;
-  color: #495057;
-  background: #f8f9fa;
-  border-bottom: 2px solid #dee2e6;
+  color: var(--text-primary, #495057);
+  background: var(--bg-hover, #f8f9fa);
+  border-bottom: 2px solid var(--border-color, #dee2e6);
   white-space: nowrap;
 }
 
@@ -360,8 +361,8 @@
 
 .itemized-table td {
   padding: 12px 16px;
-  border-bottom: 1px solid #e9ecef;
-  color: #495057;
+  border-bottom: 1px solid var(--border-color, #e9ecef);
+  color: var(--text-primary, #495057);
 }
 
 .itemized-table td.right {
@@ -371,7 +372,7 @@
 
 .itemized-table td.primary-cell {
   font-weight: 600;
-  color: #212529;
+  color: var(--text-primary, #212529);
 }
 
 .itemized-table td.profit-cell {
@@ -380,17 +381,17 @@
 }
 
 .itemized-table tbody tr:hover {
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
 }
 
 .itemized-table tfoot .totals-row {
-  background: #e9ecef;
+  background: var(--bg-hover, #e9ecef);
   font-weight: 600;
 }
 
 .itemized-table tfoot .totals-row td {
   border-bottom: none;
-  border-top: 2px solid #dee2e6;
+  border-top: 2px solid var(--border-color, #dee2e6);
 }
 
 .margin-badge {
@@ -423,18 +424,18 @@
   gap: 8px;
   margin-top: 24px;
   padding: 12px 16px;
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
   border-radius: 8px;
   font-size: 14px;
 }
 
 .period-label {
   font-weight: 600;
-  color: #495057;
+  color: var(--text-primary, #495057);
 }
 
 .period-dates {
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
 }
 
 /* Comparison Results */
@@ -444,7 +445,7 @@
 
 .comparison-table-wrapper {
   overflow-x: auto;
-  background: white;
+  background: var(--bg-paper, white);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -459,9 +460,9 @@
   padding: 16px;
   text-align: left;
   font-weight: 600;
-  color: #495057;
-  background: #f8f9fa;
-  border-bottom: 2px solid #dee2e6;
+  color: var(--text-primary, #495057);
+  background: var(--bg-hover, #f8f9fa);
+  border-bottom: 2px solid var(--border-color, #dee2e6);
 }
 
 .comparison-table th.right {
@@ -470,8 +471,8 @@
 
 .comparison-table td {
   padding: 16px;
-  border-bottom: 1px solid #e9ecef;
-  color: #495057;
+  border-bottom: 1px solid var(--border-color, #e9ecef);
+  color: var(--text-primary, #495057);
 }
 
 .comparison-table td.right {
@@ -504,17 +505,17 @@
 
 .period-box {
   padding: 12px 16px;
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
   border-radius: 8px;
   font-size: 14px;
-  color: #495057;
+  color: var(--text-primary, #495057);
 }
 
 /* Export Notice */
 .export-notice {
   margin-top: 32px;
   padding: 16px;
-  background: #e9ecef;
+  background: var(--bg-hover, #e9ecef);
   border-radius: 8px;
   text-align: center;
 }
@@ -522,7 +523,7 @@
 .export-notice p {
   margin: 0;
   font-size: 14px;
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
 }
 
 /* Loading & Error States */
@@ -701,7 +702,7 @@
 
 .click-hint {
   font-size: 11px;
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
   font-weight: normal;
   font-style: italic;
 }
@@ -723,7 +724,7 @@
 }
 
 .job-details-modal .modal-content {
-  background: white;
+  background: var(--bg-paper, white);
   border-radius: 16px;
   width: 100%;
   max-width: 900px;
@@ -820,7 +821,7 @@
 }
 
 .job-summary-grid .summary-item {
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
   border-radius: 12px;
   padding: 20px;
   text-align: center;
@@ -850,7 +851,7 @@
 .job-summary-grid .summary-item .label {
   font-size: 12px;
   font-weight: 600;
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 8px;
@@ -859,7 +860,7 @@
 .job-summary-grid .summary-item .value {
   font-size: 24px;
   font-weight: 700;
-  color: #212529;
+  color: var(--text-primary, #212529);
 }
 
 .job-summary-grid .summary-item.revenue .value { color: #28a745; }
@@ -870,8 +871,8 @@
 /* Materials and Labor Summary Sections */
 .materials-summary,
 .labor-summary {
-  background: white;
-  border: 1px solid #e9ecef;
+  background: var(--bg-paper, white);
+  border: 1px solid var(--border-color, #e9ecef);
   border-radius: 12px;
   margin-bottom: 20px;
   overflow: hidden;
@@ -883,8 +884,8 @@
   padding: 16px 20px;
   font-size: 16px;
   font-weight: 600;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
+  background: var(--bg-hover, #f8f9fa);
+  border-bottom: 1px solid var(--border-color, #e9ecef);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -903,7 +904,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 20px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
 }
 
 .summary-row:last-child {
@@ -911,17 +912,17 @@
 }
 
 .summary-row.highlight {
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
   font-weight: 600;
 }
 
 .summary-row .row-label {
-  color: #495057;
+  color: var(--text-primary, #495057);
 }
 
 .summary-row .row-value {
   font-family: 'SF Mono', Menlo, monospace;
-  color: #212529;
+  color: var(--text-primary, #212529);
 }
 
 .summary-row .row-value.positive { color: #28a745; }
@@ -938,9 +939,9 @@
   padding: 12px 16px;
   text-align: left;
   font-weight: 600;
-  color: #6c757d;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
+  color: var(--text-secondary, #6c757d);
+  background: var(--bg-hover, #f8f9fa);
+  border-bottom: 1px solid var(--border-color, #e9ecef);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -952,8 +953,8 @@
 
 .details-table td {
   padding: 12px 16px;
-  border-bottom: 1px solid #f0f0f0;
-  color: #495057;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  color: var(--text-primary, #495057);
 }
 
 .details-table td.right {
@@ -962,12 +963,12 @@
 }
 
 .details-table tbody tr:hover {
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
 }
 
 .details-table .no-data {
   text-align: center;
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
   font-style: italic;
   padding: 20px;
 }
@@ -976,10 +977,10 @@
 .job-info-section h4 {
   margin: 0 0 16px 0;
   padding-bottom: 8px;
-  border-bottom: 2px solid #e9ecef;
+  border-bottom: 2px solid var(--border-color, #e9ecef);
   font-size: 16px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text-primary, #495057);
 }
 
 .info-grid {
@@ -989,7 +990,7 @@
 }
 
 .info-grid .info-item {
-  background: #f8f9fa;
+  background: var(--bg-hover, #f8f9fa);
   padding: 12px 16px;
   border-radius: 8px;
 }
@@ -997,7 +998,7 @@
 .info-grid .info-item .label {
   font-size: 11px;
   font-weight: 600;
-  color: #6c757d;
+  color: var(--text-secondary, #6c757d);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 4px;
@@ -1006,7 +1007,7 @@
 .info-grid .info-item .value {
   font-size: 15px;
   font-weight: 600;
-  color: #212529;
+  color: var(--text-primary, #212529);
 }
 
 /* Mobile Responsiveness for Modal */

@@ -10,19 +10,19 @@
     "@mui/material": "^5.18.0",
     "@mui/x-data-grid": "^5.17.26",
     "@mui/x-date-pickers": "^5.0.20",
-    "date-fns": "^2.30.0",
+    "@zxing/library": "^0.20.0",
     "ajv": "^8.12.0",
     "axios": "^1.12.2",
+    "date-fns": "^2.30.0",
     "jwt-decode": "^3.1.2",
+    "leaflet": "^1.9.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.30.1",
     "react-scripts": "^5.0.1",
     "react-webcam": "^7.2.0",
-    "xlsx": "^0.18.5",
-    "@zxing/library": "^0.20.0",
-    "leaflet": "^1.9.4",
-    "react-leaflet": "^4.2.1"
+    "xlsx": "^0.18.5"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -43,6 +43,7 @@
     ]
   },
   "devDependencies": {
-    "http-proxy-middleware": "^3.0.3"
+    "http-proxy-middleware": "^3.0.3",
+    "sharp": "^0.34.5"
   }
 }
